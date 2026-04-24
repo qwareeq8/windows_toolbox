@@ -41,12 +41,12 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Bridge
 
-- [ ] **BRDG-01**: Python-side draft model holds unsaved changes separately from persisted settings
-- [ ] **BRDG-02**: Save commits draft to QSettings and applies side effects (startup shortcut, snap manager, Explorer worker)
-- [ ] **BRDG-03**: Discard reverts draft to persisted settings and reapplies runtime bindings
-- [ ] **BRDG-04**: Unknown bridge keys rejected with structured error, not silently dropped
-- [ ] **BRDG-05**: Bridge returns structured payloads ({ok, data} or {ok, error}) for all operations
-- [ ] **BRDG-06**: Launch-at-login toggle creates or removes startup shortcut on save
+- [x] **BRDG-01**: Python-side draft model holds unsaved changes separately from persisted settings
+- [x] **BRDG-02**: Save commits draft to QSettings and applies side effects (startup shortcut, snap manager, Explorer worker)
+- [x] **BRDG-03**: Discard reverts draft to persisted settings and reapplies runtime bindings
+- [x] **BRDG-04**: Unknown bridge keys rejected with structured error, not silently dropped
+- [x] **BRDG-05**: Bridge returns structured payloads ({ok, data} or {ok, error}) for all operations
+- [x] **BRDG-06**: Launch-at-login toggle creates or removes startup shortcut on save
 
 ### Frontend
 
@@ -162,12 +162,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 2 | Complete |
 | SEC-04 | Phase 2 | Complete |
 | SEC-05 | Phase 2 | Complete |
-| BRDG-01 | Phase 2 | Pending |
-| BRDG-02 | Phase 2 | Pending |
-| BRDG-03 | Phase 2 | Pending |
-| BRDG-04 | Phase 2 | Pending |
-| BRDG-05 | Phase 2 | Pending |
-| BRDG-06 | Phase 2 | Pending |
+| BRDG-01 | Phase 2 | Complete |
+| BRDG-02 | Phase 2 | Complete |
+| BRDG-03 | Phase 2 | Complete |
+| BRDG-04 | Phase 2 | Complete |
+| BRDG-05 | Phase 2 | Complete |
+| BRDG-06 | Phase 2 | Complete |
 | UI-01 | Phase 2 | Pending |
 | UI-02 | Phase 2 | Pending |
 | UI-03 | Phase 2 | Pending |

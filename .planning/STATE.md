@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-04-24T18:47:32Z"
-last_activity: 2026-04-24 -- Executed 02-01 WebEngine security hardening (2 tasks, 2 commits)
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-04-24T18:53:00Z"
+last_activity: 2026-04-24 -- Executed 02-02 Bridge draft state and response standardization (2 tasks, 2 commits)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 36
+  total_plans: 5
+  completed_plans: 5
+  percent: 45
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 2 (Security and Bridge Hardening) — Executing
-Plan: 1 of 3 executed
+Plan: 2 of 3 executed
 Status: Executing
-Last activity: 2026-04-24 -- Executed 02-01 WebEngine security hardening (2 tasks, 2 commits)
+Last activity: 2026-04-24 -- Executed 02-02 Bridge draft state and response standardization (2 tasks, 2 commits)
 
-Progress: [####......] 36%
+Progress: [####......] 45%
 
 ## Performance Metrics
 
@@ -45,11 +45,11 @@ Progress: [####......] 36%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 3 | 9min | 3min |
-| 2 | 1 | 3min | 3min |
+| 2 | 2 | 6min | 3min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (5min), 01-02 (2min), 01-03 (2min), 02-01 (3min)
+- Last 5 plans: 01-01 (5min), 01-02 (2min), 01-03 (2min), 02-01 (3min), 02-02 (3min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - [01-03]: ISCC discovery uses ISCC_PATH env var with Program Files fallback candidates
 - [02-01]: Dev mode requires explicit VIRELO_DEV=1 -- sys.frozen fallback removed
 - [02-01]: data: scheme allowed in navigation filter to support setHtml error pages
+- [02-02]: apply_partial renamed to apply_draft -- stores in draft dict, not QSettings
+- [02-02]: Side effects fire only on commit_draft, not on individual save_settings calls
+- [02-02]: Single setWindowCommand slot with string command (not separate minimize/close slots)
+- [02-02]: get_launch_at_login and get_snap_enabled return structured JSON (result=str), not bare bool
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-24T18:47:32Z
-Stopped at: Completed 02-01-PLAN.md
-Resume file: .planning/phases/02-security-and-bridge-hardening/02-02-PLAN.md
+Last session: 2026-04-24T18:53:00Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: .planning/phases/02-security-and-bridge-hardening/02-03-PLAN.md
