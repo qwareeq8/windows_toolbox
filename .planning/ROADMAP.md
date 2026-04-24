@@ -29,12 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Version string is defined once in app_config.py and appears correctly in the installer, the frontend About view, and pyproject.toml without manual duplication
   4. Repository root contains .gitignore, README, LICENSE (MIT), and CLAUDE.md, and git status shows no untracked generated artifacts
   5. No deprecated Qt attribute warnings appear in the application log at startup
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Identity cleanup, version consolidation, and stale reference removal
+- [ ] 01-02-PLAN.md -- Repository files (.gitignore, README, LICENSE, CLAUDE.md)
+- [ ] 01-03-PLAN.md -- Build pipeline (6 PowerShell scripts)
 
 ### Phase 2: Security and Bridge Hardening
 **Goal**: The WebEngine host is locked down for an admin-elevated process, the bridge uses structured draft/commit state management, and every visible frontend control connects to the Python backend
