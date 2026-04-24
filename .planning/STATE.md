@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 4 complete — all 3 plans executed, verified
-last_updated: "2026-04-24T21:50:00Z"
-last_activity: 2026-04-24 -- Phase 04 verified and complete
+status: milestone_complete
+stopped_at: v1.0 milestone archived
+last_updated: "2026-04-24T22:10:00Z"
+last_activity: 2026-04-24 -- v1.0 milestone complete and archived
 progress:
   total_phases: 4
   completed_phases: 4
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
-**Current focus:** Phase 04 — snap-and-explorer-hardening
+**Current focus:** v1.0 milestone complete — next milestone not started
 
 ## Current Position
 
-Phase: 04 (snap-and-explorer-hardening) — COMPLETE
-Plan: 3 of 3
-Status: Phase 04 complete — verified
-Last activity: 2026-04-24 -- Phase 04 verified and complete
+Milestone: v1.0 — COMPLETE (archived)
+Phase: All 4 phases complete (14/14 plans)
+Status: Milestone archived, ready for next milestone
+Last activity: 2026-04-24 -- v1.0 milestone archived
 
 Progress: [##########] 100%
 
@@ -116,14 +116,15 @@ None yet.
 
 ## Deferred Items
 
-Items acknowledged and carried forward from previous milestone close:
+Items acknowledged and deferred at v1.0 milestone close on 2026-04-24:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| verification_gap | Phase 01 01-VERIFICATION.md | human_needed | 2026-04-24 |
+| verification_gap | Phase 03 03-VERIFICATION.md | gaps_found | 2026-04-24 |
 
 ## Session Continuity
 
 Last session: 2026-04-24
-Stopped at: Completed 04-02-PLAN.md (all Phase 04 plans complete)
-Resume file: None
+Stopped at: v1.0 milestone archived
+Resume file: .planning/MILESTONES.md

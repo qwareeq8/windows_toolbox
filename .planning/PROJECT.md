@@ -27,18 +27,31 @@ The keyboard-triggered window snap must work reliably on any foreground window a
 
 ### Active
 
-- [ ] Remove all stale "Windows Toolbox" naming and create one source of truth for product identity
-- [ ] Build a repeatable pipeline that produces frontend, PyInstaller app, and Inno installer from a clean checkout
-- [ ] Harden WebEngine host: block remote navigation, make dev mode explicit, handle missing frontend build
-- [ ] Replace the first-pass bridge with a structured state bridge using a Python-side draft model
-- [ ] Remove fake frontend controls and wire every visible action to the Python bridge
-- [ ] Split main.py into maintainable modules under a virelo package
-- [ ] Add tests, linting, and CI to catch regressions
-- [ ] Improve snap architecture: separate hotkey detection from window movement, add exclusions, handle multi-monitor edge cases
-- [ ] Clean up Explorer feature scope to match implemented backend capabilities
-- [ ] Create repository hygiene: .gitignore, README, LICENSE, CLAUDE.md, docs
-- [ ] Make the repo presentable for GitHub with accurate documentation
 - [ ] Prepare a module registry architecture for future personal tools
+- [ ] Preset snap sizes with keyboard cycling
+- [ ] Per-process snap exclusion list
+- [ ] Remember Explorer column widths per folder
+
+### Validated (v1.0)
+
+- Multi-press keyboard snap resizes and centers the foreground window
+- Keyboard-triggered restore returns the window to original size/maximized state
+- Game mode skips snapping when a fullscreen application is detected
+- Explorer column auto-size adjusts Detail view columns on folder navigation
+- System tray icon with show/quit actions
+- Settings persisted to Windows registry via QSettings
+- Single-instance mutex prevents duplicate launches
+- Admin elevation enforced at startup
+- React frontend renders all settings UI inside QWebEngineView
+- Dark/light/system theme with accent colors
+- Command palette for quick actions
+- Key capture workflow for rebinding snap and restore keys
+- All stale naming removed, version consolidated to single source of truth
+- Reproducible build pipeline (bootstrap through installer)
+- WebEngine security lockdown with draft/commit state model
+- Fake controls removed, all UI wired to Python bridge
+- Codebase restructured as testable virelo/ package with CI
+- Hotkey detection separated from window movement, ExplorerService extracted
 
 ### Out of Scope
 
@@ -51,13 +64,7 @@ The keyboard-triggered window snap must work reliably on any foreground window a
 
 ## Context
 
-The app was originally called "Windows Toolbox" and has been renamed to Virelo, but stale references remain in the PyInstaller spec file and build scripts. The React frontend was recently added to replace an older Qt Widgets UI, and the migration left fake controls, no-op command palette actions, and a first-pass bridge that saves immediately without draft state.
-
-The build pipeline is incomplete: the PyInstaller spec requires `frontend/dist/` but the build script does not run `npm ci` or `npm run build` before PyInstaller. The WebEngine host allows remote URL access and does not block external navigation. Version strings are duplicated across at least five files.
-
-`main.py` is the monolithic core containing app lifecycle, tray behavior, snap logic, Explorer logic, startup shortcut logic, WebEngine setup, bridge callbacks, and Win32 helpers. There are no tests, no linting configuration, and no CI.
-
-The codebase map is available at `.planning/codebase/` from a prior analysis.
+Shipped v1.0 with 4,355 LOC Python, 1,482 LOC React/JS, 607 LOC tests. All "Windows Toolbox" naming removed. Codebase organized as a `virelo/` package with 6 subpackages (app, bridge, services, workers, platform, settings). 53 unit tests pass, Ruff linting clean, GitHub Actions CI enforces on every push. Reproducible build pipeline produces installer from clean checkout. WebEngine locked down, bridge uses draft/commit state model, all UI controls wired to Python backend. Snap and Explorer features are isolated services with proper separation of concerns.
 
 ## Constraints
 
@@ -96,4 +103,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after initialization*
+*Last updated: 2026-04-24 after v1.0 milestone*
