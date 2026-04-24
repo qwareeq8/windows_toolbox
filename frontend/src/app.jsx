@@ -145,7 +145,7 @@ function Footer({ unsaved, onSave, onDiscard, onReset, onTestSnap, statusMsg }) 
 }
 
 // Map Python bridge settings keys to React state keys
-function bridgeToState(settings) {
+export function bridgeToState(settings) {
   return {
     snapEnabled: settings.enable_snap ?? true,
     snapKey: (settings.snap_key || 'shift').toUpperCase(),
@@ -161,7 +161,7 @@ function bridgeToState(settings) {
 }
 
 // Map React state keys back to Python bridge settings keys
-function stateToBridge(state) {
+export function stateToBridge(state) {
   return JSON.stringify({
     enable_snap: state.snapEnabled,
     snap_key: state.snapKey.toLowerCase(),
