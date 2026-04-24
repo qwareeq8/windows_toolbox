@@ -13,7 +13,7 @@ Virelo is a working Windows desktop utility that needs hardening and cleanup bef
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Hygiene and Build Pipeline** - Remove stale naming, create repo files, and establish a reproducible build from clean checkout
-- [ ] **Phase 2: Security and Bridge Hardening** - Lock down WebEngine, restructure the bridge with draft state, and wire all frontend controls
+- [x] **Phase 2: Security and Bridge Hardening** - Lock down WebEngine, restructure the bridge with draft state, and wire all frontend controls
 - [ ] **Phase 3: Structure and Quality** - Add quality tooling, split main.py into a virelo package, and establish CI
 - [ ] **Phase 4: Snap and Explorer Hardening** - Extract and harden the snap and Explorer services with tests and correct scope
 
@@ -64,12 +64,14 @@ Plans:
   3. pytest runs with passing tests for settings validation, theme resolution, snap geometry calculations, and bridge payload structure -- without launching the full UI
   4. Frontend tests run via Vitest for key component behaviors
   5. CI fails if "Windows Toolbox" reappears in any source file (stale-name regression gate)
-**Plans**: TBD
+**Plans**: 5 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md -- Quality tooling setup (pyproject.toml, Ruff, pytest config, Vitest config)
+- [ ] 03-02-PLAN.md -- Package skeleton and leaf/middle-tier module moves (platform, settings, services, bridge)
+- [ ] 03-03-PLAN.md -- Upper-tier module moves (workers split, MainWindow extraction, thin shim, Virelo.spec update)
+- [ ] 03-04-PLAN.md -- Python unit tests and frontend Vitest tests
+- [ ] 03-05-PLAN.md -- GitHub Actions CI workflow and CLAUDE.md update
 
 ### Phase 4: Snap and Explorer Hardening
 **Goal**: The snap and Explorer features operate as isolated, tested services with correct scope and robust edge-case handling
@@ -96,5 +98,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
 | 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
-| 3. Structure and Quality | 0/3 | Not started | - |
+| 3. Structure and Quality | 0/5 | Not started | - |
 | 4. Snap and Explorer Hardening | 0/2 | Not started | - |
