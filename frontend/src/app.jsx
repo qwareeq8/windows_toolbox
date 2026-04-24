@@ -99,10 +99,8 @@ function Sidebar({ nav, setNav, app, mode }) {
       {!iconsOnly && (
         <div style={{
           padding: '10px 10px 4px', fontSize: 11, color: t.textMuted,
-          display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          <span style={{ width: 6, height: 6, borderRadius: 3, background: '#4FC17A' }}/>
-          v{__APP_VERSION__} · up to date
+          v{__APP_VERSION__}
         </div>
       )}
     </div>
@@ -148,13 +146,7 @@ function bridgeToState(settings) {
     height: settings.height_pct ?? 76,
     gameMode: settings.game_mode_enabled ?? true,
     autoSize: settings.ex_auto_size ?? true,
-    rememberCols: false,
-    showHidden: false,
-    showExts: true,
     launchLogin: settings.run_at_startup ?? false,
-    startTray: false,
-    autoUpdate: true,
-    telemetry: false,
   };
 }
 
@@ -171,7 +163,6 @@ function stateToBridge(state) {
     game_mode_enabled: state.gameMode,
     ex_auto_size: state.autoSize,
     run_at_startup: state.launchLogin,
-    theme: undefined, // theme managed by ThemeProvider, not settings state
   });
 }
 
@@ -183,9 +174,8 @@ export default function VireloApp({ bridge }) {
   const [state, setState] = React.useState({
     snapEnabled: true, snapKey: 'SHIFT', restoreKey: 'CTRL',
     pressCount: 3, interval: 1050, width: 76, height: 76,
-    gameMode: true, autoSize: true, rememberCols: true,
-    showHidden: false, showExts: true,
-    launchLogin: true, startTray: false, autoUpdate: true, telemetry: false,
+    gameMode: true, autoSize: true,
+    launchLogin: true,
   });
   const [unsaved, setUnsaved] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState('');

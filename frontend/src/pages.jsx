@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { useTokens, useTheme, ACCENTS } from './theme.jsx';
-import { Toggle, Button, Card, Row, Segmented, Stepper, Slider, Kbd, Badge } from './primitives.jsx';
+import { Toggle, Button, Card, Row, Segmented, Stepper, Slider, Kbd } from './primitives.jsx';
 import { Icon } from './icons.jsx';
 
 function MonitorPreview({ width, height }) {
@@ -116,20 +116,8 @@ function ExplorerPage({ app }) {
   return (
     <Pg title="Explorer" subtitle="Quality-of-life tweaks for File Explorer's Detail view.">
       <Card>
-        <Row label="Auto-size columns on folder change" description="Resize Detail view columns to fit each time you navigate.">
+        <Row label="Auto-size columns on folder change" description="Resize Detail view columns to fit each time you navigate." last>
           <Toggle on={app.autoSize} onChange={(v) => app.set({ autoSize: v })} />
-        </Row>
-        <Row label="Remember column widths" description="Restore the last used widths when revisiting a folder." last>
-          <Toggle on={app.rememberCols} onChange={(v) => app.set({ rememberCols: v })} />
-        </Row>
-      </Card>
-
-      <Card title="Hidden files">
-        <Row label="Show hidden files" description="Include files and folders flagged as hidden.">
-          <Toggle on={app.showHidden} onChange={(v) => app.set({ showHidden: v })} />
-        </Row>
-        <Row label="Show file extensions" description="Always display extensions for known file types." last>
-          <Toggle on={app.showExts} onChange={(v) => app.set({ showExts: v })} />
         </Row>
       </Card>
     </Pg>
@@ -141,11 +129,6 @@ function ShortcutsPage({ app }) {
   const items = [
     { label: 'Trigger snap',       keys: [app.snapKey, app.snapKey, app.snapKey].slice(0, app.pressCount) },
     { label: 'Restore last snap',  keys: [app.restoreKey, app.restoreKey, app.restoreKey].slice(0, app.pressCount) },
-    { label: 'Cycle preset sizes', keys: [app.snapKey, '↑'] },
-    { label: 'Move to next display', keys: [app.snapKey, '→'] },
-    { label: 'Move to previous display', keys: [app.snapKey, '←'] },
-    { label: 'Toggle Virelo pause', keys: ['Ctrl', 'Alt', 'P'] },
-    { label: 'Open settings',      keys: ['Ctrl', ','] },
     { label: 'Command palette',    keys: ['Ctrl', 'K'] },
   ];
   return (
@@ -202,22 +185,13 @@ function GeneralPage({ app }) {
         </Row>
       </Card>
 
-      <Card title="Startup & updates">
-        <Row label="Launch at login" description="Start Virelo when you sign in to Windows.">
+      <Card title="Startup">
+        <Row label="Launch at login" description="Start Virelo when you sign in to Windows." last>
           <Toggle on={app.launchLogin} onChange={(v) => app.set({ launchLogin: v })} />
-        </Row>
-        <Row label="Start minimized to tray" description="Hide the main window on launch.">
-          <Toggle on={app.startTray} onChange={(v) => app.set({ startTray: v })} />
-        </Row>
-        <Row label="Automatic updates" description="Install the latest version in the background." last>
-          <Toggle on={app.autoUpdate} onChange={(v) => app.set({ autoUpdate: v })} />
         </Row>
       </Card>
 
       <Card title="Advanced">
-        <Row label="Anonymous telemetry" description="Help improve Virelo by sending crash reports.">
-          <Toggle on={app.telemetry} onChange={(v) => app.set({ telemetry: v })} />
-        </Row>
         <Row label="Reset all settings" description="Restore every preference to its default value." last>
           <Button variant="danger" size="sm">Reset</Button>
         </Row>
@@ -228,11 +202,6 @@ function GeneralPage({ app }) {
 
 function AboutPage() {
   const t = useTokens();
-  const changelog = [
-    { v: '1.4.2', date: 'Apr 12', items: ['Fixed flicker when snapping on HiDPI displays', 'Command palette (Ctrl+K)'] },
-    { v: '1.4.0', date: 'Mar 28', items: ['Per-monitor snap presets', 'New Explorer auto-size behavior'] },
-    { v: '1.3.1', date: 'Feb 14', items: ['Game mode stability fixes'] },
-  ];
   return (
     <Pg title="About" subtitle="Virelo -- a tiny utility for snappier windows.">
       <Card padding={false}>
@@ -245,41 +214,14 @@ function AboutPage() {
           }}>V</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 18, fontWeight: 600, color: t.text, letterSpacing: -0.3 }}>Virelo</div>
-            <div style={{ fontSize: 12.5, color: t.textDim, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span>Version {__APP_VERSION__}</span>
-              <span style={{ width: 3, height: 3, borderRadius: 2, background: t.textMuted }}/>
-              <Badge tone="success">Up to date</Badge>
+            <div style={{ fontSize: 12.5, color: t.textDim, marginTop: 2 }}>
+              Version {__APP_VERSION__}
             </div>
           </div>
-          <Button variant="secondary" size="sm">Check for updates</Button>
         </div>
       </Card>
-
-      <Card title="What's new">
-        {changelog.map((r, i) => (
-          <div key={r.v} style={{
-            padding: `${t.rowPad}px 0`,
-            borderBottom: i < changelog.length - 1 ? `1px solid ${t.border}` : 'none',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: t.text, fontFamily: t.mono }}>v{r.v}</span>
-              <span style={{ fontSize: 11.5, color: t.textMuted }}>{r.date}</span>
-            </div>
-            <ul style={{ margin: 0, padding: '0 0 0 18px', color: t.textDim, fontSize: 12.5, lineHeight: 1.6 }}>
-              {r.items.map((it, j) => <li key={j}>{it}</li>)}
-            </ul>
-          </div>
-        ))}
-      </Card>
-
       <Card>
-        <Row label="Documentation" description="Guides, tips, and keyboard cheatsheet.">
-          <Button variant="secondary" size="sm">Open ↗</Button>
-        </Row>
-        <Row label="Report an issue" description="GitHub issue tracker.">
-          <Button variant="secondary" size="sm">Open ↗</Button>
-        </Row>
-        <Row label="License" description="MIT · (c) 2026 Virelo contributors" last>
+        <Row label="License" description="MIT" last>
           <Button variant="ghost" size="sm">View</Button>
         </Row>
       </Card>
