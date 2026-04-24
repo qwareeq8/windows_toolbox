@@ -37,6 +37,7 @@ select = ["E", "F", "I", "UP"]
 [tool.ruff.lint.per-file-ignores]
 "virelo/*/__init__.py" = ["F401"]
 "Virelo.spec" = ["F821", "UP009"]
+"tests/conftest.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

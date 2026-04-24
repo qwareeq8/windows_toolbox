@@ -7,7 +7,6 @@ Win32 APIs or a running desktop.
 from virelo.platform.win32_helpers import FULLSCREEN_TOLERANCE, _rect_matches_monitor
 from virelo.services.snap import calculate_snap_position
 
-
 # -- _rect_matches_monitor --
 
 
@@ -40,8 +39,8 @@ def test_calculate_snap_position_76pct():
     x, y, w, h = calculate_snap_position(0, 0, 1920, 1080, 76, 76)
     assert w == 1920 * 76 // 100  # 1459
     assert h == 1080 * 76 // 100  # 820
-    assert x == (1920 - w) // 2   # 230
-    assert y == (1080 - h) // 2   # 130
+    assert x == (1920 - w) // 2  # 230
+    assert y == (1080 - h) // 2  # 130
 
 
 def test_calculate_snap_position_50pct():

@@ -38,7 +38,7 @@ for mod_name in _NATIVE_STUBS:
 
             stub.QObject = _StubQObject
             stub.Signal = lambda *a, **kw: MagicMock()
-            stub.Slot = lambda *a, **kw: (lambda f: f)
+            stub.Slot = lambda *a, **kw: lambda f: f
             stub.Property = lambda *a, **kw: property(lambda self: None)
         sys.modules[mod_name] = stub
 
