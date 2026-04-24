@@ -42,21 +42,40 @@ python main.py
 
 ## Project Structure
 
-- `main.py` -- Application entry point, MainWindow, ShiftSnapRestore
-- `bridge.py` -- QWebChannel bridge (VireloBridge QObject)
-- `webview.py` -- QWebEngineView host
-- `settings.py` / `settings_state.py` -- Settings persistence via QSettings
-- `app_config.py` -- Product metadata, defaults, version (single source of truth)
-- `snap_service.py` -- Snap service facade
-- `explorer_columns.py` -- COM-based Explorer column autosize
-- `workers.py` -- Background QThread workers
-- `theme.py` -- Theme resolution (system/dark/light)
-- `capture_guard.py` -- Thread-safe key capture mutex
-- `startup_shortcut.py` -- Startup shortcut management
+- `main.py` -- Thin entry shim: `from virelo.app import main; main()`
+- `virelo/` -- Python package (all backend source)
+  - `app/` -- Application shell
+    - `__main__.py` -- Startup: admin elevation, single-instance, QApp, MainWindow
+    - `window.py` -- MainWindow: tray, chrome, thread lifecycle, wiring
+    - `config.py` -- Product metadata, defaults, version (single source of truth)
+    - `webview.py` -- QWebEngineView host
+  - `bridge/` -- Python-JS communication
+    - `bridge.py` -- QWebChannel bridge (VireloBridge QObject)
+    - `capture_guard.py` -- Thread-safe key capture mutex
+  - `services/` -- Business logic
+    - `snap.py` -- Snap service facade, ShiftSnapRestore engine, geometry calculations
+    - `explorer_columns.py` -- COM-based Explorer column autosize
+  - `workers/` -- Background QThread workers
+    - `key_capture.py` -- KeyCaptureWorker and KeyCaptureSession
+    - `explorer.py` -- ExplorerAutosizeWorker and ExplorerAutosizeEngine
+  - `platform/` -- Windows platform utilities
+    - `win32_helpers.py` -- DPI, monitor rects, fullscreen detection, window geometry
+    - `resources.py` -- PyInstaller-compatible resource path resolution
+    - `paths.py` -- Path canonicalization
+    - `theme.py` -- Theme resolution (system/dark/light)
+    - `startup.py` -- Startup shortcut management
+  - `settings/` -- Settings persistence
+    - `persistence.py` -- QSettings read/write (Settings class)
+    - `state.py` -- JSON facade with validation and draft model (SettingsState class)
 - `frontend/src/` -- React 19 frontend (app.jsx, pages.jsx, panels.jsx, etc.)
+- `tests/` -- Test suite
+  - `unit/` -- Pure logic tests (no Qt, runs in CI)
+  - `integration/` -- Tests requiring PySide6 (local only)
 - `scripts/` -- PowerShell build pipeline
 - `installer/virelo.iss` -- Inno Setup installer script
 - `Virelo.spec` -- PyInstaller spec file
+- `pyproject.toml` -- Project metadata, dependencies, Ruff and pytest config
+- `.github/workflows/ci.yml` -- CI: lint, test, frontend build, stale-name check
 
 ## Naming Conventions
 
@@ -77,11 +96,11 @@ python main.py
    - `.venv/`
    - `__pycache__/`
 
-4. **Never hardcode version strings.** Use `APP_VERSION` from `app_config.py`. The frontend receives the version via Vite `define` at build time (`__APP_VERSION__`). The installer receives it via ISCC `/D` flag.
+4. **Never hardcode version strings.** Use `APP_VERSION` from `virelo/app/config.py`. The frontend receives the version via Vite `define` at build time (`__APP_VERSION__`). The installer receives it via ISCC `/D` flag.
 
 ## Known Footguns
 
-1. **`app_config.py` must not be imported in `Virelo.spec`.** The spec file runs in PyInstaller's analysis context where PySide6 may not be importable. Use regex to parse the version string instead of importing the module.
+1. **`virelo/app/config.py` must not be imported in `Virelo.spec`.** The spec file runs in PyInstaller's analysis context where PySide6 may not be importable. Use regex to parse the version string instead of importing the module.
 
 2. **PowerShell `$LASTEXITCODE` must be checked after every external command.** `$ErrorActionPreference = "Stop"` only catches PowerShell cmdlet errors, not native command failures (npm, python, pyinstaller, ISCC). Always add: `if ($LASTEXITCODE -ne 0) { throw "command failed" }`.
 
