@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 planned — ready to execute
-last_updated: "2026-04-24T19:30:00Z"
-last_activity: 2026-04-24 -- Phase 2 planned (3 plans in 2 waves, verification passed)
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-04-24T18:47:32Z"
+last_activity: 2026-04-24 -- Executed 02-01 WebEngine security hardening (2 tasks, 2 commits)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 27
+  total_plans: 4
+  completed_plans: 4
+  percent: 36
 ---
 
 # Project State
@@ -25,30 +25,31 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 ## Current Position
 
-Phase: 2 (Security and Bridge Hardening) — Planned
-Plan: 0 of 3 executed
-Status: Ready to execute
-Last activity: 2026-04-24 -- Phase 2 planned (3 plans in 2 waves, verification passed)
+Phase: 2 (Security and Bridge Hardening) — Executing
+Plan: 1 of 3 executed
+Status: Executing
+Last activity: 2026-04-24 -- Executed 02-01 WebEngine security hardening (2 tasks, 2 commits)
 
-Progress: [###.......] 27%
+Progress: [####......] 36%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 3min
-- Total execution time: 0.15 hours
+- Total execution time: 0.20 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 3 | 9min | 3min |
+| 2 | 1 | 3min | 3min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (5min), 01-02 (2min), 01-03 (2min)
+- Last 5 plans: 01-01 (5min), 01-02 (2min), 01-03 (2min), 02-01 (3min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [01-03]: Build scripts chain via direct invocation (build-installer -> build-app -> build-frontend)
 - [01-03]: Each script validates preconditions and fails early with clear error messages
 - [01-03]: ISCC discovery uses ISCC_PATH env var with Program Files fallback candidates
+- [02-01]: Dev mode requires explicit VIRELO_DEV=1 -- sys.frozen fallback removed
+- [02-01]: data: scheme allowed in navigation filter to support setHtml error pages
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-24T19:30:00Z
-Stopped at: Phase 2 planned — ready to execute
-Resume file: .planning/phases/02-security-and-bridge-hardening/02-01-PLAN.md
+Last session: 2026-04-24T18:47:32Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: .planning/phases/02-security-and-bridge-hardening/02-02-PLAN.md

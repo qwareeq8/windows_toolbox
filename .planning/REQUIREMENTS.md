@@ -33,11 +33,11 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Security
 
-- [ ] **SEC-01**: WebEngine blocks external navigation via acceptNavigationRequest override
-- [ ] **SEC-02**: LocalContentCanAccessRemoteUrls disabled in release mode
-- [ ] **SEC-03**: Dev mode triggered only by VIRELO_DEV=1 environment variable, not sys.frozen check
-- [ ] **SEC-04**: Missing frontend build shows clear error message, not blank page
-- [ ] **SEC-05**: Default WebEngine context menu disabled in release mode
+- [x] **SEC-01**: WebEngine blocks external navigation via acceptNavigationRequest override
+- [x] **SEC-02**: LocalContentCanAccessRemoteUrls disabled in release mode
+- [x] **SEC-03**: Dev mode triggered only by VIRELO_DEV=1 environment variable, not sys.frozen check
+- [x] **SEC-04**: Missing frontend build shows clear error message, not blank page
+- [x] **SEC-05**: Default WebEngine context menu disabled in release mode
 
 ### Bridge
 
@@ -157,11 +157,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BUILD-04 | Phase 1 | Complete |
 | BUILD-05 | Phase 1 | Complete |
 | BUILD-06 | Phase 1 | Complete |
-| SEC-01 | Phase 2 | Pending |
-| SEC-02 | Phase 2 | Pending |
-| SEC-03 | Phase 2 | Pending |
-| SEC-04 | Phase 2 | Pending |
-| SEC-05 | Phase 2 | Pending |
+| SEC-01 | Phase 2 | Complete |
+| SEC-02 | Phase 2 | Complete |
+| SEC-03 | Phase 2 | Complete |
+| SEC-04 | Phase 2 | Complete |
+| SEC-05 | Phase 2 | Complete |
 | BRDG-01 | Phase 2 | Pending |
 | BRDG-02 | Phase 2 | Pending |
 | BRDG-03 | Phase 2 | Pending |
