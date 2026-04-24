@@ -4,7 +4,6 @@ import ctypes
 import logging
 import os
 import sys
-import time
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from win32com.client import Dispatch
@@ -20,51 +19,14 @@ from virelo.platform.theme import (
     resolve_theme,
     toggle_theme_mode,
 )
-from virelo.platform.win32_helpers import _is_window_interactive
-from virelo.services.explorer_columns import autosize_explorer_columns
-from virelo.services.snap import ShiftSnapRestore, SnapService
+from virelo.services.explorer_service import ExplorerService
+from virelo.services.snap import HotkeyListener, ShiftSnapRestore, SnapService
 from virelo.settings import Settings, SettingsState
-from virelo.workers.explorer import ExplorerAutosizeWorker
 from virelo.workers.key_capture import KeyCaptureWorker
 
 LOG = logging.getLogger("Virelo")
 
 APP_TITLE = APP_NAME
-
-
-# ------------------------------------------------------------------------------
-# Explorer autosize wrappers (pass to ExplorerAutosizeWorker)
-# ------------------------------------------------------------------------------
-
-
-def _autosize_explorer_columns_quick(
-    top_hwnd: int, target_path: str = None, caller_owns_com: bool = False
-) -> tuple:
-    """
-    Single autosize attempt using COM-based column manager only.
-    Returns (success, method).
-    """
-    return autosize_explorer_columns(
-        top_hwnd,
-        allow_keyboard_fallback=False,
-        target_path=target_path,
-        caller_owns_com=caller_owns_com,
-    )
-
-
-def _autosize_explorer_columns_full(
-    top_hwnd: int, target_path: str = None, caller_owns_com: bool = False
-) -> tuple:
-    """
-    Full autosize attempt; currently identical to quick (COM-only, no fallbacks).
-    Returns (success, method).
-    """
-    return autosize_explorer_columns(
-        top_hwnd,
-        allow_keyboard_fallback=False,
-        target_path=target_path,
-        caller_owns_com=caller_owns_com,
-    )
 
 
 # ------------------------------------------------------------------------------
@@ -163,8 +125,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._capture_thread = None
         self._capture_worker = None
         self._capture_target = None
-        self._explorer_thread = None
-        self._explorer_worker = None
 
         self.is_first_show = True
 
@@ -237,15 +197,16 @@ class MainWindow(QtWidgets.QMainWindow):
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Enter"), self, activated=self._test_snap)
         QtGui.QShortcut(QtGui.QKeySequence("F1"), self, activated=self._show_help)
 
-        # Managers.
+        # HotkeyListener + ShiftSnapRestore (per D-01/D-02/D-03)
+        self._hotkey_listener = HotkeyListener(self.settings)
         self.shift_mgr = ShiftSnapRestore(self.settings)
-        self.shift_mgr.triggered.connect(self.shift_mgr.perform)
+        self._hotkey_listener.triggered.connect(self.shift_mgr.perform)
         self.shift_mgr.blocked.connect(lambda message: self.snap_key_status.emit(message, 3000))
-
-        # Wire snap_service to shift_mgr
         self._snap_service.set_manager(self.shift_mgr)
+        self._snap_service.set_listener(self._hotkey_listener)
 
-        # Thread management.
+        # ExplorerService (per D-07/D-08/D-09)
+        self._explorer_service = ExplorerService(self.settings, parent=self)
         self._update_explorer_enabled_state()
 
         self._apply_theme_mode(self._theme_mode)
@@ -266,7 +227,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.hide()
         else:
             self._stop_background_threads()
-            self.shift_mgr.cleanup()
+            self._hotkey_listener.cleanup()
             QtWidgets.QApplication.quit()
 
     def _on_tray_activated(self, reason):
@@ -283,12 +244,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _really_quit(self):
         self._stop_background_threads()
-        self.shift_mgr.cleanup()
+        self._hotkey_listener.cleanup()
         QtWidgets.QApplication.quit()
 
     def _stop_background_threads(self):
         self._stop_capture_worker()
-        self._stop_explorer_worker()
+        self._explorer_service.stop()
         self._stop_theme_sync()
 
     # ------------------------------------------------------------------
@@ -330,14 +291,14 @@ class MainWindow(QtWidgets.QMainWindow):
         key_str = str(key).lower()
         if self._capture_target == "restore":
             self.settings.restore_key = key_str
-            if hasattr(self, "shift_mgr"):
-                self.shift_mgr.update_restore_key(key_str)
+            if hasattr(self, "_hotkey_listener"):
+                self._hotkey_listener.update_restore_key(key_str)
             self._bridge.capture_status.emit("done")
             self._bridge.snap_status.emit(f"Restore key set to {key_str.upper()}.", 3000)
             self._bridge.settings_changed.emit(self._settings_state.get_json())
         else:
-            if hasattr(self, "shift_mgr"):
-                self.shift_mgr.update_binding(key_str)
+            if hasattr(self, "_hotkey_listener"):
+                self._hotkey_listener.update_binding(key_str)
             self.key_captured.emit(key_str)
             self._bridge.capture_status.emit("done")
             self._bridge.settings_changed.emit(self._settings_state.get_json())
@@ -390,10 +351,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._update_snap_enabled_state()
         self._update_explorer_autosize_thread()
         self._apply_theme_mode(defaults["theme"])
-        if hasattr(self, "shift_mgr"):
-            self.shift_mgr.update_binding(defaults["snap_key"])
-            self.shift_mgr.update_restore_key(defaults["restore_key"])
-            self.shift_mgr.update_press_limit(defaults["snap_presses"])
+        if hasattr(self, "_hotkey_listener"):
+            self._hotkey_listener.update_binding(defaults["snap_key"])
+            self._hotkey_listener.update_restore_key(defaults["restore_key"])
+            self._hotkey_listener.update_press_limit(defaults["snap_presses"])
         self._bridge.settings_changed.emit(self._settings_state.get_json())
         self._bridge.snap_status.emit("Defaults loaded.", 3000)
 
@@ -419,81 +380,11 @@ class MainWindow(QtWidgets.QMainWindow):
         pass  # React reads snap_enabled from settings via bridge
 
     def _update_explorer_enabled_state(self):
-        self._update_explorer_autosize_thread()
+        self._explorer_service.start()
 
     def _update_explorer_autosize_thread(self, *args):
         """Start/stop the Explorer autosize background thread."""
-        LOG.info("_update_explorer_autosize_thread: called")
-        app = QtWidgets.QApplication.instance()
-        pushed_cursor = False
-        if app is not None:
-            QtGui.QGuiApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.CursorShape.WaitCursor))
-            pushed_cursor = True
-        try:
-            group_enabled = bool(self.settings.ex_auto_size)
-            LOG.info("_update_explorer_autosize_thread: group_enabled=%s", group_enabled)
-            if not group_enabled:
-                LOG.info("Explorer autosize: stopping (disabled or unchecked).")
-                self._stop_explorer_worker()
-                return
-
-            if self._explorer_thread and self._explorer_thread.isRunning():
-                LOG.info("Explorer autosize: worker already running.")
-                return
-
-            # Enable debug logging for autosize troubleshooting
-            LOG.setLevel(logging.DEBUG)
-            LOG.info("Explorer autosize: enabling DEBUG logging for troubleshooting")
-            LOG.info("Explorer autosize: log file is at %s", getattr(LOG, "log_path", "unknown"))
-
-            self._explorer_thread = QtCore.QThread(self)
-            # Tab-aware autosize with debounce, settle detection,
-            # rate limiting, and circuit breakers
-            # Schedule: debounce 50ms, then retries at 100ms, 250ms, 500ms, 1s
-            self._explorer_worker = ExplorerAutosizeWorker(
-                _autosize_explorer_columns_quick,
-                _autosize_explorer_columns_full,
-                _is_window_interactive,
-                schedule=(0.05, 0.1, 0.25, 0.5, 1.0),  # Debounce + retry schedule
-            )
-            self._explorer_worker.moveToThread(self._explorer_thread)
-            self._explorer_thread.started.connect(self._explorer_worker.run)
-            self._explorer_worker.finished.connect(self._explorer_thread.quit)
-            self._explorer_worker.finished.connect(self._explorer_worker.deleteLater)
-            self._explorer_thread.finished.connect(self._explorer_thread.deleteLater)
-            self._explorer_thread.finished.connect(self._on_explorer_finished)
-            self._explorer_thread.start()
-            LOG.info(
-                "Explorer autosize: worker started with tab-aware engine, "
-                "schedule=(0.05, 0.1, 0.25, 0.5, 1.0)"
-            )
-        finally:
-            if pushed_cursor:
-                QtGui.QGuiApplication.restoreOverrideCursor()
-
-    def _stop_explorer_worker(self):
-        worker = getattr(self, "_explorer_worker", None)
-        thread = getattr(self, "_explorer_thread", None)
-        if worker is not None:
-            try:
-                worker.stop()
-            except Exception:
-                pass
-            # Give the worker time to see the stop flag before we wait on the thread
-            # This helps avoid COM calls during shutdown
-            time.sleep(0.05)
-        if thread is not None:
-            thread.quit()
-            # Use longer timeout to allow COM cleanup
-            if not thread.wait(3000):
-                LOG.warning("Explorer autosize: thread did not stop in time")
-        self._explorer_worker = None
-        self._explorer_thread = None
-        LOG.info("Explorer autosize: worker stopped.")
-
-    def _on_explorer_finished(self):
-        self._explorer_worker = None
-        self._explorer_thread = None
+        self._explorer_service.start()
 
     def showEvent(self, event):
         super().showEvent(event)

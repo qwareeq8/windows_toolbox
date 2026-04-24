@@ -133,10 +133,10 @@ class VireloBridge(QObject):
             if self._main_window:
                 self._main_window._update_snap_enabled_state()
                 self._main_window._update_explorer_autosize_thread()
-                if hasattr(self._main_window, "shift_mgr"):
-                    self._main_window.shift_mgr.update_binding(new_settings["snap_key"])
-                    self._main_window.shift_mgr.update_restore_key(new_settings["restore_key"])
-                    self._main_window.shift_mgr.update_press_limit(new_settings["snap_presses"])
+                if hasattr(self._main_window, "_hotkey_listener"):
+                    self._main_window._hotkey_listener.update_binding(new_settings["snap_key"])
+                    self._main_window._hotkey_listener.update_restore_key(new_settings["restore_key"])
+                    self._main_window._hotkey_listener.update_press_limit(new_settings["snap_presses"])
                 self._main_window._apply_theme_mode(new_settings["theme"])
             return json.dumps({"ok": True, "data": new_settings})
         except Exception as e:
@@ -270,14 +270,14 @@ class VireloBridge(QObject):
         if "ex_auto_size" in applied:
             mw._update_explorer_autosize_thread()
 
-        if "snap_presses" in applied and hasattr(mw, "shift_mgr"):
-            mw.shift_mgr.update_press_limit(applied["snap_presses"])
+        if "snap_presses" in applied and hasattr(mw, "_hotkey_listener"):
+            mw._hotkey_listener.update_press_limit(applied["snap_presses"])
 
-        if "snap_key" in applied and hasattr(mw, "shift_mgr"):
-            mw.shift_mgr.update_binding(applied["snap_key"])
+        if "snap_key" in applied and hasattr(mw, "_hotkey_listener"):
+            mw._hotkey_listener.update_binding(applied["snap_key"])
 
-        if "restore_key" in applied and hasattr(mw, "shift_mgr"):
-            mw.shift_mgr.update_restore_key(applied["restore_key"])
+        if "restore_key" in applied and hasattr(mw, "_hotkey_listener"):
+            mw._hotkey_listener.update_restore_key(applied["restore_key"])
 
         if "theme" in applied:
             mw._apply_theme_mode(applied["theme"])
