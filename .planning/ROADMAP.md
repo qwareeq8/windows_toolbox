@@ -52,7 +52,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md -- WebEngine security lockdown (navigation filter, dev mode, context menu, error page)
 - [x] 02-02-PLAN.md -- Bridge draft state model, structured payloads, and window command slot
-- [ ] 02-03-PLAN.md -- Frontend cleanup (fake control removal, command palette wiring, title bar, draft flow)
+- [x] 02-03-PLAN.md -- Frontend cleanup (fake control removal, command palette wiring, title bar, draft flow)
 
 ### Phase 3: Structure and Quality
 **Goal**: The codebase is organized as a testable virelo/ package with linting, tests, and CI catching regressions on every push
@@ -95,6 +95,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
-| 2. Security and Bridge Hardening | 2/3 | In progress | - |
+| 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
 | 3. Structure and Quality | 0/3 | Not started | - |
 | 4. Snap and Explorer Hardening | 0/2 | Not started | - |

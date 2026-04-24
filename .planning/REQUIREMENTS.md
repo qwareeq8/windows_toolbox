@@ -50,12 +50,12 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Frontend
 
-- [ ] **UI-01**: Fake controls removed (auto-update, telemetry, hidden files, file extensions, remember columns)
-- [ ] **UI-02**: No-op command palette actions removed or wired to real bridge calls
-- [ ] **UI-03**: Title bar minimize and close call bridge setWindowCommand and work in frameless window
-- [ ] **UI-04**: Key capture uses bridge startKeyCapture/cancelKeyCapture, shows "Press a key" during capture
-- [ ] **UI-05**: Every visible toggle, slider, and button connects to the Python bridge
-- [ ] **UI-06**: React state survives save, discard, reset, and external Python-pushed updates
+- [x] **UI-01**: Fake controls removed (auto-update, telemetry, hidden files, file extensions, remember columns)
+- [x] **UI-02**: No-op command palette actions removed or wired to real bridge calls
+- [x] **UI-03**: Title bar minimize and close call bridge setWindowCommand and work in frameless window
+- [x] **UI-04**: Key capture uses bridge startKeyCapture/cancelKeyCapture, shows "Press a key" during capture
+- [x] **UI-05**: Every visible toggle, slider, and button connects to the Python bridge
+- [x] **UI-06**: React state survives save, discard, reset, and external Python-pushed updates
 
 ### Structure
 
@@ -168,12 +168,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BRDG-04 | Phase 2 | Complete |
 | BRDG-05 | Phase 2 | Complete |
 | BRDG-06 | Phase 2 | Complete |
-| UI-01 | Phase 2 | Pending |
-| UI-02 | Phase 2 | Pending |
-| UI-03 | Phase 2 | Pending |
-| UI-04 | Phase 2 | Pending |
-| UI-05 | Phase 2 | Pending |
-| UI-06 | Phase 2 | Pending |
+| UI-01 | Phase 2 | Complete |
+| UI-02 | Phase 2 | Complete |
+| UI-03 | Phase 2 | Complete |
+| UI-04 | Phase 2 | Complete |
+| UI-05 | Phase 2 | Complete |
+| UI-06 | Phase 2 | Complete |
 | STRUCT-01 | Phase 3 | Pending |
 | STRUCT-02 | Phase 3 | Pending |
 | STRUCT-03 | Phase 3 | Pending |
