@@ -66,3 +66,24 @@ def test_calculate_snap_position_offset_monitor():
     # x includes monitor_left offset
     assert x == 1920 + (2560 - w) // 2
     assert y == (1440 - h) // 2
+
+
+def test_calculate_snap_position_negative_coords():
+    """Snap geometry on monitor with negative origin (left-of-primary layout)."""
+    # Monitor at x=-1920, y=0, size 1920x1080
+    x, y, w, h = calculate_snap_position(-1920, 0, 1920, 1080, 76, 76)
+    assert w == 1920 * 76 // 100  # 1459
+    assert h == 1080 * 76 // 100  # 820
+    # x should be within the negative-coordinate monitor
+    assert x == -1920 + (1920 - w) // 2  # -1690
+    assert y == (1080 - h) // 2  # 130
+
+
+def test_calculate_snap_position_vertical_layout():
+    """Snap on monitor below primary (y offset, vertical multi-monitor)."""
+    # Monitor at x=0, y=1080, size 2560x1440
+    x, y, w, h = calculate_snap_position(0, 1080, 2560, 1440, 76, 76)
+    assert w == 2560 * 76 // 100  # 1945
+    assert h == 1440 * 76 // 100  # 1094
+    assert x == (2560 - w) // 2  # 307
+    assert y == 1080 + (1440 - h) // 2  # 1253
