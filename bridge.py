@@ -13,9 +13,7 @@ All slots return structured JSON payloads:
 
 import json
 import logging
-from typing import Optional
 
-from PySide6 import QtCore
 from PySide6.QtCore import QObject, Signal, Slot
 
 from settings_state import SettingsState
@@ -35,13 +33,17 @@ class VireloBridge(QObject):
     """
 
     # --- Signals (Python -> JS) ---
-    settings_changed = Signal(str)    # JSON string of full settings dict
-    theme_applied = Signal(str)       # "dark" or "light" (effective theme)
-    snap_status = Signal(str, int)    # (message, timeout_ms)
-    capture_status = Signal(str)      # "capturing", "done", "cancelled", "timeout"
+    settings_changed = Signal(str)  # JSON string of full settings dict
+    theme_applied = Signal(str)  # "dark" or "light" (effective theme)
+    snap_status = Signal(str, int)  # (message, timeout_ms)
+    capture_status = Signal(str)  # "capturing", "done", "cancelled", "timeout"
 
-    def __init__(self, settings_state: SettingsState, snap_service: SnapService,
-                 parent: Optional[QObject] = None):
+    def __init__(
+        self,
+        settings_state: SettingsState,
+        snap_service: SnapService,
+        parent: QObject | None = None,
+    ):
         super().__init__(parent)
         self._state = settings_state
         self._snap = snap_service

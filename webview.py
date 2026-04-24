@@ -16,11 +16,10 @@ import logging
 import os
 import sys
 
-from PySide6 import QtCore
 from PySide6.QtCore import QUrl
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
 from PySide6.QtWebChannel import QWebChannel
+from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from bridge import VireloBridge
 
@@ -86,8 +85,9 @@ def _get_frontend_url():
         dist_path = _resource_path(os.path.join("frontend", "dist", "index.html"))
         if not os.path.exists(dist_path):
             # Fallback: try relative to script directory
-            dist_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                      "frontend", "dist", "index.html")
+            dist_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "frontend", "dist", "index.html"
+            )
         if not os.path.exists(dist_path):
             LOG.error("WebView: frontend build missing at %s", dist_path)
             return None
@@ -113,7 +113,9 @@ class VireloWebPage(QWebEnginePage):
         # Block everything else
         LOG.warning(
             "Blocked navigation to: %s (type=%s, main_frame=%s)",
-            url.toString(), nav_type, is_main_frame,
+            url.toString(),
+            nav_type,
+            is_main_frame,
         )
         return False
 
@@ -147,7 +149,9 @@ class VireloWebView(QWebEngineView):
 
         # Configure web settings
         settings = page.settings()
-        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, _is_dev_mode())
+        settings.setAttribute(
+            QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, _is_dev_mode()
+        )
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
 
@@ -161,6 +165,7 @@ class VireloWebView(QWebEngineView):
         # Disable context menu in release mode (no Inspect Element access)
         if not _is_dev_mode():
             from PySide6.QtCore import Qt
+
             self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
 
         # Load the frontend

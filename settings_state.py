@@ -8,7 +8,6 @@ values.
 """
 
 import json
-from typing import Any
 
 from app_config import DEFAULTS, normalize_snap_presses
 from settings import Settings
@@ -28,17 +27,17 @@ class SettingsState:
 
     # Exhaustive key list with (type_coercer, validator_range_or_None)
     KEYS = {
-        "snap_key":          (str,  None),
-        "restore_key":       (str,  None),
-        "enable_snap":       (bool, None),
-        "snap_presses":      (int,  (1, 10)),
-        "snap_interval":     (int,  (100, 5000)),
-        "width_pct":         (int,  (10, 100)),
-        "height_pct":        (int,  (10, 100)),
-        "ex_auto_size":      (bool, None),
+        "snap_key": (str, None),
+        "restore_key": (str, None),
+        "enable_snap": (bool, None),
+        "snap_presses": (int, (1, 10)),
+        "snap_interval": (int, (100, 5000)),
+        "width_pct": (int, (10, 100)),
+        "height_pct": (int, (10, 100)),
+        "ex_auto_size": (bool, None),
         "game_mode_enabled": (bool, None),
-        "run_at_startup":    (bool, None),
-        "theme":             (str,  None),
+        "run_at_startup": (bool, None),
+        "theme": (str, None),
     }
 
     def __init__(self, settings: Settings):
@@ -60,9 +59,7 @@ class SettingsState:
         if self._draft:
             result.update(self._draft)
         # Normalize theme
-        result["theme"] = normalize_theme_mode(
-            result["theme"], DEFAULTS["theme"]
-        )
+        result["theme"] = normalize_theme_mode(result["theme"], DEFAULTS["theme"])
         # Normalize snap_presses
         result["snap_presses"] = normalize_snap_presses(result["snap_presses"])
         return result
@@ -98,7 +95,10 @@ class SettingsState:
             if bounds is not None:
                 lo, hi = bounds
                 if not (lo <= coerced <= hi):
-                    return {"ok": False, "error": f"{key} must be between {lo} and {hi}, got {coerced}"}
+                    return {
+                        "ok": False,
+                        "error": f"{key} must be between {lo} and {hi}, got {coerced}",
+                    }
             if key == "theme":
                 coerced = normalize_theme_mode(coerced, DEFAULTS["theme"])
             if key == "snap_presses":

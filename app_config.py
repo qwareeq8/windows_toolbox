@@ -28,6 +28,7 @@ DEFAULTS = {
     "theme": "system",
 }
 
+
 def normalize_snap_presses(value):
     try:
         val = int(value)

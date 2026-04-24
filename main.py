@@ -11,7 +11,6 @@ import time
 from collections import deque
 from ctypes import wintypes
 from logging.handlers import RotatingFileHandler
-from typing import Deque, Dict, Optional, Tuple, Union
 
 # Exit early on non-Windows platforms.
 if sys.platform != "win32":
@@ -39,20 +38,18 @@ from app_config import (
     ORGANIZATION,
     normalize_snap_presses,
 )
+from bridge import VireloBridge
 from capture_guard import CaptureGuard
 from explorer_columns import (
     autosize_explorer_columns,
-    canonicalize_path,
 )
 from settings import Settings
-from startup_shortcut import startup_shortcut_spec
-from theme import get_windows_theme, normalize_theme_mode, resolve_theme, toggle_theme_mode
-from workers import ExplorerAutosizeWorker, KeyCaptureWorker
-
-from bridge import VireloBridge
 from settings_state import SettingsState
 from snap_service import SnapService
+from startup_shortcut import startup_shortcut_spec
+from theme import get_windows_theme, normalize_theme_mode, resolve_theme, toggle_theme_mode
 from webview import VireloWebView
+from workers import ExplorerAutosizeWorker, KeyCaptureWorker
 
 # ------------------------------------------------------------------------------
 # Logging and crash diagnostics
@@ -85,25 +82,21 @@ def _init_logger() -> logging.Logger:
             backupCount=5,
             encoding="utf-8",
         )
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
         handler.setLevel(logging.DEBUG)  # File handler captures all levels
         logger.addHandler(handler)
         existing_handler = handler
-    
+
     # Also add a console handler for immediate feedback during development
     console_handler = None
     for h in logger.handlers:
         if isinstance(h, logging.StreamHandler) and not isinstance(h, RotatingFileHandler):
             console_handler = h
             break
-    
+
     if console_handler is None:
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-        )
+        console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
         console_handler.setLevel(logging.INFO)  # Console shows INFO and above
         logger.addHandler(console_handler)
 
@@ -115,9 +108,7 @@ LOG = _init_logger()
 
 _CRASH_LOG = None
 try:
-    crash_log_path = os.path.join(
-        os.path.dirname(getattr(LOG, "log_path", "")), "crash.log"
-    )
+    crash_log_path = os.path.join(os.path.dirname(getattr(LOG, "log_path", "")), "crash.log")
     _CRASH_LOG = open(crash_log_path, "a", encoding="utf-8")
     faulthandler.enable(_CRASH_LOG)
 except Exception:
@@ -146,9 +137,7 @@ def _ensure_dispatch(app_name: str):
         import shutil
 
         LOG.warning("win32com gen_py cache appears corrupted. Rebuilding.")
-        module_list = [
-            m.__name__ for m in sys.modules.values() if getattr(m, "__name__", None)
-        ]
+        module_list = [m.__name__ for m in sys.modules.values() if getattr(m, "__name__", None)]
         for module in module_list:
             if re.match(r"win32com\.gen_py\..+", module):
                 sys.modules.pop(module, None)
@@ -218,15 +207,15 @@ def _enable_dpi_awareness():
             pass
 
 
-def get_monitor_rect(hwnd: int, use_work_area: bool = True) -> Optional[Tuple[int, int, int, int]]:
+def get_monitor_rect(hwnd: int, use_work_area: bool = True) -> tuple[int, int, int, int] | None:
     """
     Get monitor rectangle for a given window.
-    
+
     Args:
         hwnd: Window handle
         use_work_area: If True, return work area (taskbar-adjusted).
                       If False, return full monitor bounds (for fullscreen detection).
-    
+
     Returns:
         (left, top, right, bottom) tuple or None
     """
@@ -243,15 +232,15 @@ def get_monitor_rect(hwnd: int, use_work_area: bool = True) -> Optional[Tuple[in
         return None
 
 
-def _get_window_dwm_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
+def _get_window_dwm_rect(hwnd: int) -> tuple[int, int, int, int] | None:
     """
     Get window rect using DWM extended frame bounds if available.
-    
+
     DWM extended frame bounds exclude invisible borders and give the true
     visual bounds of the window, which is more accurate for fullscreen detection.
-    
+
     Falls back to GetWindowRect if DWM attributes are not available.
-    
+
     Returns:
         (left, top, right, bottom) tuple or None
     """
@@ -259,10 +248,7 @@ def _get_window_dwm_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
         DWMWA_EXTENDED_FRAME_BOUNDS = 9
         rect = wintypes.RECT()
         result = ctypes.windll.dwmapi.DwmGetWindowAttribute(
-            hwnd,
-            DWMWA_EXTENDED_FRAME_BOUNDS,
-            ctypes.byref(rect),
-            ctypes.sizeof(rect)
+            hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, ctypes.byref(rect), ctypes.sizeof(rect)
         )
         if result == 0:
             return (rect.left, rect.top, rect.right, rect.bottom)
@@ -276,7 +262,7 @@ FULLSCREEN_TOLERANCE = 3
 
 
 def _rect_matches_monitor(
-    rect: Tuple[int, int, int, int], monitor: Tuple[int, int, int, int]
+    rect: tuple[int, int, int, int], monitor: tuple[int, int, int, int]
 ) -> bool:
     left, top, right, bottom = rect
     left_edge, top_edge, right_edge, bottom_edge = monitor
@@ -290,20 +276,20 @@ def _rect_matches_monitor(
 
 def _is_window_fullscreen(
     hwnd: int,
-    rect: Optional[wintypes.RECT] = None,
-    monitor_rect: Optional[Tuple[int, int, int, int]] = None,
+    rect: wintypes.RECT | None = None,
+    monitor_rect: tuple[int, int, int, int] | None = None,
 ) -> bool:
     """
     Check if window is fullscreen using true monitor bounds.
-    
+
     Uses DWM extended frame bounds for accurate window rect,
     and full monitor bounds (not work area) for comparison.
-    
+
     Args:
         hwnd: Window handle
         rect: Optional pre-fetched window rect (for optimization)
         monitor_rect: Optional pre-fetched monitor rect (must be FULL monitor bounds)
-    
+
     Returns:
         True if window appears to be fullscreen
     """
@@ -315,7 +301,7 @@ def _is_window_fullscreen(
             monitor_rect = get_monitor_rect(hwnd, use_work_area=False)
         if monitor_rect is None:
             return False
-        
+
         # Try DWM extended frame bounds first for accuracy
         if rect is None:
             dwm_rect = _get_window_dwm_rect(hwnd)
@@ -324,7 +310,7 @@ def _is_window_fullscreen(
             # Fallback to standard GetWindowRect
             rect = wintypes.RECT()
             USER32.GetWindowRect(hwnd, ctypes.byref(rect))
-        
+
         rect_vals = (rect.left, rect.top, rect.right, rect.bottom)
         return _rect_matches_monitor(rect_vals, monitor_rect)
     except Exception:
@@ -341,9 +327,7 @@ def _looks_like_game_window(hwnd: int) -> bool:
     return is_popup and not has_caption
 
 
-def _should_skip_snap_for_game(
-    hwnd: int, settings: Settings, full_screen: bool
-) -> bool:
+def _should_skip_snap_for_game(hwnd: int, settings: Settings, full_screen: bool) -> bool:
     return (
         full_screen
         and getattr(settings, "game_mode_enabled", True)
@@ -389,7 +373,7 @@ def _class_name(hwnd: int) -> str:
         return ""
 
 
-def _get_rect(hwnd: int) -> Optional[Tuple[int, int, int, int]]:
+def _get_rect(hwnd: int) -> tuple[int, int, int, int] | None:
     try:
         rc = wintypes.RECT()
         if USER32.GetWindowRect(hwnd, ctypes.byref(rc)):
@@ -407,7 +391,7 @@ def _area(hwnd: int) -> int:
     return max(0, right_edge - left_edge) * max(0, bottom_edge - top_edge)
 
 
-def _ancestor_classes(hwnd: int, depth: int = 8) -> Tuple[str, ...]:
+def _ancestor_classes(hwnd: int, depth: int = 8) -> tuple[str, ...]:
     out = []
     try:
         cur = hwnd
@@ -423,7 +407,7 @@ def _ancestor_classes(hwnd: int, depth: int = 8) -> Tuple[str, ...]:
 
 def _find_descendant_by_class(
     hwnd_start: int, class_names: tuple, max_depth: int = 12
-) -> Optional[int]:
+) -> int | None:
     try:
         class_names = tuple(n.lower() for n in class_names)
         queue = [(hwnd_start, 0)]
@@ -448,7 +432,7 @@ def _find_descendant_by_class(
 
 def _collect_descendants_by_class(
     hwnd_start: int, class_names: tuple, max_depth: int = 12
-) -> Tuple[int, ...]:
+) -> tuple[int, ...]:
     found = []
     try:
         class_names = tuple(n.lower() for n in class_names)
@@ -498,7 +482,7 @@ def _looks_like_preview(hwnd: int) -> bool:
     return False
 
 
-def _find_best_folder_listview(top_hwnd: int) -> Optional[int]:
+def _find_best_folder_listview(top_hwnd: int) -> int | None:
     """
     Prefer the FolderView listview under SHELLDLL_DefView.
     If multiple SysListView32 exist (e.g., Preview pane), choose the largest non-preview one.
@@ -506,19 +490,13 @@ def _find_best_folder_listview(top_hwnd: int) -> Optional[int]:
     defview = _find_descendant_by_class(top_hwnd, ("SHELLDLL_DefView",), max_depth=12)
     candidates = []
     if defview:
-        candidates = list(
-            _collect_descendants_by_class(defview, ("SysListView32",), max_depth=6)
-        )
+        candidates = list(_collect_descendants_by_class(defview, ("SysListView32",), max_depth=6))
     if not candidates:
-        candidates = list(
-            _collect_descendants_by_class(top_hwnd, ("SysListView32",), max_depth=14)
-        )
+        candidates = list(_collect_descendants_by_class(top_hwnd, ("SysListView32",), max_depth=14))
     if not candidates:
         return None
 
-    filtered = [
-        h for h in candidates if _is_window_interactive(h) and not _looks_like_preview(h)
-    ]
+    filtered = [h for h in candidates if _is_window_interactive(h) and not _looks_like_preview(h)]
     if not filtered:
         filtered = [h for h in candidates if _is_window_interactive(h)]
     if not filtered:
@@ -528,37 +506,51 @@ def _find_best_folder_listview(top_hwnd: int) -> Optional[int]:
     return _as_hwnd(best) if best else None
 
 
-def _autosize_explorer_columns_quick(top_hwnd: int, target_path: str = None, caller_owns_com: bool = False) -> tuple:
+def _autosize_explorer_columns_quick(
+    top_hwnd: int, target_path: str = None, caller_owns_com: bool = False
+) -> tuple:
     """
     Single autosize attempt using COM-based column manager only.
     Returns (success, method).
-    
+
     Args:
         top_hwnd: Top-level Explorer window handle
         target_path: If provided, find the tab matching this path (for Windows 11 tabs)
         caller_owns_com: If True, caller manages COM init/uninit
     """
-    return autosize_explorer_columns(top_hwnd, allow_keyboard_fallback=False, target_path=target_path, caller_owns_com=caller_owns_com)
+    return autosize_explorer_columns(
+        top_hwnd,
+        allow_keyboard_fallback=False,
+        target_path=target_path,
+        caller_owns_com=caller_owns_com,
+    )
 
 
-def _autosize_explorer_columns_full(top_hwnd: int, target_path: str = None, caller_owns_com: bool = False) -> tuple:
+def _autosize_explorer_columns_full(
+    top_hwnd: int, target_path: str = None, caller_owns_com: bool = False
+) -> tuple:
     """
     Full autosize attempt; currently identical to quick (COM-only, no fallbacks).
     Returns (success, method).
-    
+
     Args:
         top_hwnd: Top-level Explorer window handle
         target_path: If provided, find the tab matching this path (for Windows 11 tabs)
         caller_owns_com: If True, caller manages COM init/uninit
     """
-    return autosize_explorer_columns(top_hwnd, allow_keyboard_fallback=False, target_path=target_path, caller_owns_com=caller_owns_com)
+    return autosize_explorer_columns(
+        top_hwnd,
+        allow_keyboard_fallback=False,
+        target_path=target_path,
+        caller_owns_com=caller_owns_com,
+    )
 
 
 # Keep the old function name for backward compatibility with tests
 def _autosize_explorer_columns_try(top_hwnd: int) -> bool:
     """
     Legacy wrapper for backward compatibility.
-    
+
     Returns True if autosize succeeded, False otherwise.
     """
     success, method = _autosize_explorer_columns_quick(top_hwnd)
@@ -569,9 +561,7 @@ def get_startup_shortcut_path() -> str:
     appdata = os.environ.get("APPDATA")
     if not appdata:
         raise RuntimeError("APPDATA is not set.")
-    startup_dir = os.path.join(
-        appdata, r"Microsoft\Windows\Start Menu\Programs\Startup"
-    )
+    startup_dir = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
     return os.path.join(startup_dir, f"{APP_NAME}.lnk")
 
 
@@ -613,14 +603,12 @@ class ShiftSnapRestore(QtCore.QObject):
     def __init__(self, settings: Settings):
         super().__init__()
         self.settings = settings
-        self._press_times: Deque[float] = deque(
+        self._press_times: deque[float] = deque(
             maxlen=normalize_snap_presses(self.settings.snap_presses)
         )
         self._press_lock = threading.Lock()
         self._held = False
-        self._orig_sizes: Dict[
-            int, Dict[str, Union[Tuple[int, int, int, int], bool]]
-        ] = {}
+        self._orig_sizes: dict[int, dict[str, tuple[int, int, int, int] | bool]] = {}
         self.current_key = str(settings.snap_key)
         self.restore_key = str(getattr(settings, "restore_key", "ctrl"))
         self._press_hook = keyboard.on_press_key(self.current_key, self._on_press)
@@ -771,12 +759,6 @@ class ShiftSnapRestore(QtCore.QObject):
             return rect
 
         rc = refresh_rect()
-        win_left, win_top, win_right, win_bottom = (
-            rc.left,
-            rc.top,
-            rc.right,
-            rc.bottom,
-        )
         if hwnd not in self._orig_sizes:
             placement = win32gui.GetWindowPlacement(hwnd)
             was_maximized = placement[1] == win32con.SW_MAXIMIZE
@@ -784,21 +766,21 @@ class ShiftSnapRestore(QtCore.QObject):
                 "rect": (rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top),
                 "maximized": was_maximized,
             }
-        
+
         # Get full monitor bounds for accurate fullscreen detection
         mon_full = get_monitor_rect(hwnd, use_work_area=False)
         if not mon_full:
             return
-        
+
         # Check if window is fullscreen using full monitor bounds
         full_screen = _is_window_fullscreen(hwnd, rect=rc, monitor_rect=mon_full)
-        
+
         # Skip snapping if game mode enabled and window is fullscreen borderless
         if _should_skip_snap_for_game(hwnd, self.settings, full_screen):
             LOG.info("Game mode: skipped snap for fullscreen window hwnd=%s", hwnd)
             self.blocked.emit("Game mode: fullscreen window not moved")
             return
-        
+
         # Get work area for normal snapping sizing
         mon = get_monitor_rect(hwnd, use_work_area=True)
         if not mon:
@@ -812,13 +794,6 @@ class ShiftSnapRestore(QtCore.QObject):
         if full_screen:
             _exit_fullscreen(hwnd)
             rc = refresh_rect()
-        
-        win_left, win_top, win_right, win_bottom = (
-            rc.left,
-            rc.top,
-            rc.right,
-            rc.bottom,
-        )
 
         is_resizable = bool(style & win32con.WS_SIZEBOX)
 
@@ -861,9 +836,7 @@ class ShiftSnapRestore(QtCore.QObject):
         orig = self._orig_sizes.pop(hwnd, None)
         if not orig:
             return
-        was_maximized = (
-            orig.get("maximized", False) if isinstance(orig, dict) else False
-        )
+        was_maximized = orig.get("maximized", False) if isinstance(orig, dict) else False
         rect = orig["rect"] if isinstance(orig, dict) else orig
         mon = get_monitor_rect(hwnd)
         if not mon:
@@ -892,9 +865,6 @@ class ShiftSnapRestore(QtCore.QObject):
             x = left_edge + ((monitor_width - width) // 2)
             y = top_edge + ((monitor_height - height) // 2)
             USER32.MoveWindow(hwnd, x, y, width, height, True)
-
-
-
 
 
 # ------------------------------------------------------------------------------
@@ -926,9 +896,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.ex_auto_size = bool(getattr(self.settings, "ex_auto_size", False))
         self.settings.game_mode_enabled = bool(self.settings.game_mode_enabled)
         self.settings.run_at_startup = bool(self.settings.run_at_startup)
-        self.settings.theme = normalize_theme_mode(
-            str(self.settings.theme), DEFAULTS["theme"]
-        )
+        self.settings.theme = normalize_theme_mode(str(self.settings.theme), DEFAULTS["theme"])
 
         self._capture_guard = CaptureGuard()
         self._capture_thread = None
@@ -1004,20 +972,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.snap_key_status.connect(self._bridge.snap_status.emit)
 
         # Shortcuts
-        QtGui.QShortcut(
-            QtGui.QKeySequence("Ctrl+T"), self, activated=self._toggle_theme
-        )
-        QtGui.QShortcut(
-            QtGui.QKeySequence("Ctrl+Enter"), self, activated=self._test_snap
-        )
+        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, activated=self._toggle_theme)
+        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Enter"), self, activated=self._test_snap)
         QtGui.QShortcut(QtGui.QKeySequence("F1"), self, activated=self._show_help)
 
         # Managers.
         self.shift_mgr = ShiftSnapRestore(self.settings)
         self.shift_mgr.triggered.connect(self.shift_mgr.perform)
-        self.shift_mgr.blocked.connect(
-            lambda message: self.snap_key_status.emit(message, 3000)
-        )
+        self.shift_mgr.blocked.connect(lambda message: self.snap_key_status.emit(message, 3000))
 
         # Wire snap_service to shift_mgr
         self._snap_service.set_manager(self.shift_mgr)
@@ -1078,14 +1040,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._bridge.snap_status.emit(f"Snap key set to {key.upper()}.", 3000)
 
     def _start_key_capture(self):
-        self._begin_key_capture(
-            "snap", "Press desired snap key... (Esc to cancel)"
-        )
+        self._begin_key_capture("snap", "Press desired snap key... (Esc to cancel)")
 
     def _start_restore_key_capture(self):
-        self._begin_key_capture(
-            "restore", "Press desired restore key... (Esc to cancel)"
-        )
+        self._begin_key_capture("restore", "Press desired restore key... (Esc to cancel)")
 
     def _begin_key_capture(self, target: str, message: str):
         if not self._capture_guard.try_start():
@@ -1208,9 +1166,7 @@ class MainWindow(QtWidgets.QMainWindow):
         app = QtWidgets.QApplication.instance()
         pushed_cursor = False
         if app is not None:
-            QtGui.QGuiApplication.setOverrideCursor(
-                QtGui.QCursor(QtCore.Qt.CursorShape.WaitCursor)
-            )
+            QtGui.QGuiApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.CursorShape.WaitCursor))
             pushed_cursor = True
         try:
             group_enabled = bool(self.settings.ex_auto_size)
@@ -1227,10 +1183,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # Enable debug logging for autosize troubleshooting
             LOG.setLevel(logging.DEBUG)
             LOG.info("Explorer autosize: enabling DEBUG logging for troubleshooting")
-            LOG.info("Explorer autosize: log file is at %s", getattr(LOG, 'log_path', 'unknown'))
-            
+            LOG.info("Explorer autosize: log file is at %s", getattr(LOG, "log_path", "unknown"))
+
             self._explorer_thread = QtCore.QThread(self)
-            # Tab-aware autosize with debounce, settle detection, rate limiting, and circuit breakers
+            # Tab-aware autosize with debounce, settle detection,
+            # rate limiting, and circuit breakers
             # Schedule: debounce 50ms, then retries at 100ms, 250ms, 500ms, 1s
             self._explorer_worker = ExplorerAutosizeWorker(
                 _autosize_explorer_columns_quick,
@@ -1245,7 +1202,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self._explorer_thread.finished.connect(self._explorer_thread.deleteLater)
             self._explorer_thread.finished.connect(self._on_explorer_finished)
             self._explorer_thread.start()
-            LOG.info("Explorer autosize: worker started with tab-aware engine, schedule=(0.05, 0.1, 0.25, 0.5, 1.0)")
+            LOG.info(
+                "Explorer autosize: worker started with tab-aware engine, "
+                "schedule=(0.05, 0.1, 0.25, 0.5, 1.0)"
+            )
         finally:
             if pushed_cursor:
                 QtGui.QGuiApplication.restoreOverrideCursor()
@@ -1261,6 +1221,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Give the worker time to see the stop flag before we wait on the thread
             # This helps avoid COM calls during shutdown
             import time
+
             time.sleep(0.05)
         if thread is not None:
             thread.quit()
@@ -1298,9 +1259,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 remove_startup_shortcut()
                 self.settings.run_at_startup = False
         except Exception as e:
-            QtWidgets.QMessageBox.warning(
-                self, "Error", f"Failed to modify startup shortcut:\n{e}"
-            )
+            QtWidgets.QMessageBox.warning(self, "Error", f"Failed to modify startup shortcut:\n{e}")
             self.action_run_at_startup.setChecked(False)
         self.settings.save()
 
@@ -1340,8 +1299,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def center_on_screen(self):
         cursor_pos = QtGui.QCursor.pos()
         screen = (
-            QtWidgets.QApplication.screenAt(cursor_pos)
-            or QtWidgets.QApplication.primaryScreen()
+            QtWidgets.QApplication.screenAt(cursor_pos) or QtWidgets.QApplication.primaryScreen()
         )
         g = screen.availableGeometry()
         w = self.size()
@@ -1429,15 +1387,11 @@ def main():
     QtWidgets.QApplication.setQuitOnLastWindowClosed(False)
 
     if not QtWidgets.QSystemTrayIcon.isSystemTrayAvailable():
-        QtWidgets.QMessageBox.critical(
-            None, "Error", "No system tray is available. Exiting."
-        )
+        QtWidgets.QMessageBox.critical(None, "Error", "No system tray is available. Exiting.")
         return
     win = MainWindow()
 
-    app.aboutToQuit.connect(
-        lambda: (win._stop_background_threads(), win.shift_mgr.cleanup())
-    )
+    app.aboutToQuit.connect(lambda: (win._stop_background_threads(), win.shift_mgr.cleanup()))
     atexit.register(lambda: (win._stop_background_threads(), win.shift_mgr.cleanup()))
 
     win._singleton_mutex = mutex
