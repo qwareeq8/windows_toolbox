@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Hygiene and Build Pipeline** - Remove stale naming, create repo files, and establish a reproducible build from clean checkout
 - [x] **Phase 2: Security and Bridge Hardening** - Lock down WebEngine, restructure the bridge with draft state, and wire all frontend controls
-- [ ] **Phase 3: Structure and Quality** - Add quality tooling, split main.py into a virelo package, and establish CI
+- [x] **Phase 3: Structure and Quality** - Add quality tooling, split main.py into a virelo package, and establish CI
 - [ ] **Phase 4: Snap and Explorer Hardening** - Extract and harden the snap and Explorer services with tests and correct scope
 
 ## Phase Details
@@ -71,7 +71,7 @@ Plans:
 - [x] 03-02-PLAN.md -- Package skeleton and leaf/middle-tier module moves (platform, settings, services, bridge)
 - [x] 03-03-PLAN.md -- Upper-tier module moves (workers split, MainWindow extraction, thin shim, Virelo.spec update)
 - [x] 03-04-PLAN.md -- Python unit tests and frontend Vitest tests
-- [ ] 03-05-PLAN.md -- GitHub Actions CI workflow and CLAUDE.md update
+- [x] 03-05-PLAN.md -- GitHub Actions CI workflow and CLAUDE.md update
 
 ### Phase 4: Snap and Explorer Hardening
 **Goal**: The snap and Explorer features operate as isolated, tested services with correct scope and robust edge-case handling
@@ -98,5 +98,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
 | 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
-| 3. Structure and Quality | 4/5 | In progress | - |
+| 3. Structure and Quality | 5/5 | Complete | 2026-04-24 |
 | 4. Snap and Explorer Hardening | 0/2 | Not started | - |
