@@ -53,7 +53,7 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 - [x] **UI-01**: Fake controls removed (auto-update, telemetry, hidden files, file extensions, remember columns)
 - [x] **UI-02**: No-op command palette actions removed or wired to real bridge calls
 - [x] **UI-03**: Title bar minimize and close call bridge setWindowCommand and work in frameless window
-- [x] **UI-04**: Key capture uses bridge startKeyCapture/cancelKeyCapture, shows "Press a key" during capture
+- [x] **UI-04**: Snap and restore key selection uses preset Segmented controls (SHIFT/CTRL/ALT) wired to bridge save_settings
 - [x] **UI-05**: Every visible toggle, slider, and button connects to the Python bridge
 - [x] **UI-06**: React state survives save, discard, reset, and external Python-pushed updates
 
