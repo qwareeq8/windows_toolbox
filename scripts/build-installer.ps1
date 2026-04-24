@@ -8,9 +8,9 @@ Write-Host "[build-installer] Building application..."
 & "$PSScriptRoot\build-app.ps1"
 if ($LASTEXITCODE -ne 0) { throw "build-app.ps1 failed" }
 
-# --- Read version from app_config.py ---
-$versionMatch = Select-String -Path "app_config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
-if (-not $versionMatch) { throw "APP_VERSION not found in app_config.py" }
+# --- Read version from virelo/app/config.py ---
+$versionMatch = Select-String -Path "virelo\app\config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
+if (-not $versionMatch) { throw "APP_VERSION not found in virelo/app/config.py" }
 $AppVersion = $versionMatch.Matches.Groups[1].Value
 Write-Host "[build-installer] Version: $AppVersion"
 

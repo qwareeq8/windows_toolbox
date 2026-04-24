@@ -12,9 +12,9 @@ if (-not $npm) { throw "npm not found. Install Node.js from https://nodejs.org" 
 
 Write-Host "[build-frontend] Node $(node --version), npm $(npm --version)"
 
-# --- Read version from app_config.py ---
-$versionMatch = Select-String -Path "app_config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
-if (-not $versionMatch) { throw "APP_VERSION not found in app_config.py" }
+# --- Read version from virelo/app/config.py ---
+$versionMatch = Select-String -Path "virelo\app\config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
+if (-not $versionMatch) { throw "APP_VERSION not found in virelo/app/config.py" }
 $env:VITE_APP_VERSION = $versionMatch.Matches.Groups[1].Value
 Write-Host "[build-frontend] Version: $env:VITE_APP_VERSION"
 

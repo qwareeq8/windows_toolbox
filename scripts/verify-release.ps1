@@ -8,9 +8,9 @@ Write-Host "[verify-release] Checking build artifacts..."
 $errors = @()
 
 # --- Read expected version ---
-$versionMatch = Select-String -Path "app_config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
+$versionMatch = Select-String -Path "virelo\app\config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
 if (-not $versionMatch) {
-    $errors += "APP_VERSION not found in app_config.py"
+    $errors += "APP_VERSION not found in virelo/app/config.py"
 } else {
     $AppVersion = $versionMatch.Matches.Groups[1].Value
     Write-Host "[verify-release] Expected version: $AppVersion"
