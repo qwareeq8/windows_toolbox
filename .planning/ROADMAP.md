@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Hygiene and Build Pipeline** - Remove stale naming, create repo files, and establish a reproducible build from clean checkout
 - [x] **Phase 2: Security and Bridge Hardening** - Lock down WebEngine, restructure the bridge with draft state, and wire all frontend controls
 - [x] **Phase 3: Structure and Quality** - Add quality tooling, split main.py into a virelo package, and establish CI
-- [ ] **Phase 4: Snap and Explorer Hardening** - Extract and harden the snap and Explorer services with tests and correct scope
+- [x] **Phase 4: Snap and Explorer Hardening** - Extract and harden the snap and Explorer services with tests and correct scope
 
 ## Phase Details
 
@@ -87,7 +87,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md -- HotkeyListener extraction, Virelo window exclusion, SnapService delegation update
-- [ ] 04-02-PLAN.md -- ExplorerService creation, MainWindow and bridge wiring
+- [x] 04-02-PLAN.md -- ExplorerService creation, MainWindow and bridge wiring
 - [x] 04-03-PLAN.md -- Multi-monitor geometry and maximized-restore unit tests
 
 ## Progress
@@ -100,4 +100,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
 | 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
 | 3. Structure and Quality | 5/5 | Complete | 2026-04-24 |
-| 4. Snap and Explorer Hardening | 2/3 | In Progress | - |
+| 4. Snap and Explorer Hardening | 3/3 | Complete | 2026-04-24 |

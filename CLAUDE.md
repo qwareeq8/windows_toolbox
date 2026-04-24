@@ -55,6 +55,7 @@ python main.py
   - `services/` -- Business logic
     - `snap.py` -- HotkeyListener (keyboard detection), ShiftSnapRestore (window movement), SnapService facade, geometry calculations
     - `explorer_columns.py` -- COM-based Explorer column autosize
+    - `explorer_service.py` -- ExplorerService lifecycle manager (start/stop/is_running)
   - `workers/` -- Background QThread workers
     - `key_capture.py` -- KeyCaptureWorker and KeyCaptureSession
     - `explorer.py` -- ExplorerAutosizeWorker and ExplorerAutosizeEngine

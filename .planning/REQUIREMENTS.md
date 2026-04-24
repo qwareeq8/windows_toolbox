@@ -85,9 +85,9 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Explorer
 
-- [ ] **EXPL-01**: Explorer page shows only implemented features (auto-size columns)
-- [ ] **EXPL-02**: Explorer worker orchestration moved out of MainWindow into a service
-- [ ] **EXPL-03**: Explorer worker starts only when the setting is enabled and stops cleanly on quit
+- [x] **EXPL-01**: Explorer page shows only implemented features (auto-size columns)
+- [x] **EXPL-02**: Explorer worker orchestration moved out of MainWindow into a service
+- [x] **EXPL-03**: Explorer worker starts only when the setting is enabled and stops cleanly on quit
 
 ## v2 Requirements
 
@@ -191,9 +191,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SNAP-03 | Phase 4 | Complete (04-01) |
 | SNAP-04 | Phase 4 | Complete (04-01) |
 | SNAP-05 | Phase 4 | Complete (04-03) |
-| EXPL-01 | Phase 4 | Pending |
-| EXPL-02 | Phase 4 | Pending |
-| EXPL-03 | Phase 4 | Pending |
+| EXPL-01 | Phase 4 | Complete (04-02) |
+| EXPL-02 | Phase 4 | Complete (04-02) |
+| EXPL-03 | Phase 4 | Complete (04-02) |
 
 **Coverage:**
 - v1 requirements: 52 total
