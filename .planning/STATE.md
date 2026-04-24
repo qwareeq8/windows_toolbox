@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
-status: ready_to_plan
-stopped_at: Phase 5 ready to plan
-last_updated: "2026-04-24T23:30:00Z"
-last_activity: 2026-04-24 -- Roadmap created for v1.1
+status: context_gathered
+stopped_at: Phase 5 context gathered
+last_updated: "2026-04-24T23:45:00Z"
+last_activity: 2026-04-24 -- Phase 5 context gathered (auto mode)
 progress:
   total_phases: 4
   completed_phases: 0
@@ -28,8 +28,8 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 Milestone: v1.1 -- Polish and Correctness
 Phase: 5 of 8 (Bridge and Settings Correctness)
 Plan: --
-Status: Ready to plan
-Last activity: 2026-04-24 -- Roadmap created with 4 phases (5-8), 28 requirements mapped
+Status: Context gathered, ready to plan
+Last activity: 2026-04-24 -- Phase 5 context gathered (auto mode, 6 gray areas auto-resolved)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -75,5 +75,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-24
-Stopped at: Roadmap created for v1.1 -- 4 phases, 28 requirements mapped
-Resume file: None
+Stopped at: Phase 5 context gathered (auto mode)
+Resume file: .planning/phases/05-bridge-and-settings-correctness/05-CONTEXT.md
