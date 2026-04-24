@@ -1,10 +1,9 @@
-"""Snap service and ShiftSnapRestore engine.
+"""Snap service, HotkeyListener, and ShiftSnapRestore engine.
 
-SnapService wraps the ShiftSnapRestore API so bridge.py can trigger snap
-actions without directly depending on the ShiftSnapRestore class internals.
-
-ShiftSnapRestore handles keyboard-triggered multi-press window snapping
-and restore.
+HotkeyListener detects multi-press keyboard patterns and emits a trigger signal.
+ShiftSnapRestore performs window snap and restore operations.
+SnapService wraps both so bridge.py can trigger snap actions without depending
+on class internals.
 """
 
 import ctypes
@@ -47,52 +46,10 @@ def calculate_snap_position(
     return (x, y, w, h)
 
 
-class SnapService:
-    """Narrow API surface for snap/restore actions."""
+class HotkeyListener(QtCore.QObject):
+    """Detects multi-press keyboard patterns and emits trigger signal."""
 
-    def __init__(self, shift_mgr):
-        """Accept a ShiftSnapRestore instance (or None during early init)."""
-        self._mgr = shift_mgr
-
-    def set_manager(self, mgr):
-        """Set or replace the ShiftSnapRestore instance."""
-        self._mgr = mgr
-
-    def test_snap(self) -> dict:
-        """Trigger a test snap (same as pressing "Test snap" button)."""
-        if self._mgr is None:
-            return {"ok": False, "error": "Snap manager not initialized"}
-        try:
-            self._mgr.perform(False)
-            return {"ok": True, "message": "Snap test applied to the active window."}
-        except Exception as e:
-            LOG.exception("test_snap failed")
-            return {"ok": False, "error": str(e)}
-
-    def update_binding(self, key: str):
-        """Update the snap key binding."""
-        if self._mgr:
-            self._mgr.update_binding(key)
-
-    def update_restore_key(self, key: str):
-        """Update the restore key binding."""
-        if self._mgr:
-            self._mgr.update_restore_key(key)
-
-    def update_press_limit(self, count: int):
-        """Update the snap press count."""
-        if self._mgr:
-            self._mgr.update_press_limit(count)
-
-
-# ------------------------------------------------------------------------------
-# SHIFT triple-press snap and restore
-# ------------------------------------------------------------------------------
-
-
-class ShiftSnapRestore(QtCore.QObject):
     triggered = QtCore.Signal(bool)
-    blocked = QtCore.Signal(str)
 
     def __init__(self, settings):
         super().__init__()
@@ -102,12 +59,10 @@ class ShiftSnapRestore(QtCore.QObject):
         )
         self._press_lock = threading.Lock()
         self._held = False
-        self._orig_sizes: dict[int, dict[str, tuple[int, int, int, int] | bool]] = {}
         self.current_key = str(settings.snap_key)
         self.restore_key = str(getattr(settings, "restore_key", "ctrl"))
         self._press_hook = keyboard.on_press_key(self.current_key, self._on_press)
         self._release_hook = keyboard.on_release_key(self.current_key, self._on_release)
-        self._fetch_open_windows()
 
     def cleanup(self):
         try:
@@ -118,57 +73,6 @@ class ShiftSnapRestore(QtCore.QObject):
             keyboard.unhook(self._release_hook)
         except Exception:
             pass
-
-    def _fetch_open_windows(self):
-        def enum_windows_callback(hwnd, _):
-            if not win32gui.IsWindowVisible(hwnd):
-                return True
-            title = win32gui.GetWindowText(hwnd)
-            if not title:
-                return True
-            try:
-                placement = win32gui.GetWindowPlacement(hwnd)
-                rc = wintypes.RECT()
-                USER32.GetWindowRect(hwnd, ctypes.byref(rc))
-                if placement[1] == win32con.SW_MAXIMIZE:
-                    self._orig_sizes[hwnd] = {
-                        "rect": (
-                            rc.left,
-                            rc.top,
-                            rc.right - rc.left,
-                            rc.bottom - rc.top,
-                        ),
-                        "maximized": True,
-                    }
-                else:
-                    if rc.right - rc.left > 0 and rc.bottom - rc.top > 0:
-                        self._orig_sizes[hwnd] = {
-                            "rect": (
-                                rc.left,
-                                rc.top,
-                                rc.right - rc.left,
-                                rc.bottom - rc.top,
-                            ),
-                            "maximized": False,
-                        }
-            except Exception as e:
-                LOG.exception("EnumWindows callback failed.", exc_info=e)
-            return True
-
-        self._orig_sizes.clear()
-        win32gui.EnumWindows(enum_windows_callback, None)
-
-    def _prune_closed_windows(self):
-        existing = set()
-
-        def enum_cb(hwnd, _):
-            existing.add(hwnd)
-            return True
-
-        win32gui.EnumWindows(enum_cb, None)
-        stale = [hwnd for hwnd in list(self._orig_sizes.keys()) if hwnd not in existing]
-        for hwnd in stale:
-            self._orig_sizes.pop(hwnd, None)
 
     def update_binding(self, new_key: str):
         try:
@@ -220,6 +124,74 @@ class ShiftSnapRestore(QtCore.QObject):
 
     def _on_release(self, event):
         self._held = False
+
+
+# ------------------------------------------------------------------------------
+# SHIFT triple-press snap and restore
+# ------------------------------------------------------------------------------
+
+
+class ShiftSnapRestore(QtCore.QObject):
+    """Performs window snap and restore operations."""
+
+    blocked = QtCore.Signal(str)
+
+    def __init__(self, settings):
+        super().__init__()
+        self.settings = settings
+        self._orig_sizes: dict[int, dict[str, tuple[int, int, int, int] | bool]] = {}
+        self._fetch_open_windows()
+
+    def _fetch_open_windows(self):
+        def enum_windows_callback(hwnd, _):
+            if not win32gui.IsWindowVisible(hwnd):
+                return True
+            title = win32gui.GetWindowText(hwnd)
+            if not title:
+                return True
+            try:
+                placement = win32gui.GetWindowPlacement(hwnd)
+                rc = wintypes.RECT()
+                USER32.GetWindowRect(hwnd, ctypes.byref(rc))
+                if placement[1] == win32con.SW_MAXIMIZE:
+                    self._orig_sizes[hwnd] = {
+                        "rect": (
+                            rc.left,
+                            rc.top,
+                            rc.right - rc.left,
+                            rc.bottom - rc.top,
+                        ),
+                        "maximized": True,
+                    }
+                else:
+                    if rc.right - rc.left > 0 and rc.bottom - rc.top > 0:
+                        self._orig_sizes[hwnd] = {
+                            "rect": (
+                                rc.left,
+                                rc.top,
+                                rc.right - rc.left,
+                                rc.bottom - rc.top,
+                            ),
+                            "maximized": False,
+                        }
+            except Exception as e:
+                LOG.exception("EnumWindows callback failed.", exc_info=e)
+            return True
+
+        self._orig_sizes.clear()
+        win32gui.EnumWindows(enum_windows_callback, None)
+
+    def _prune_closed_windows(self):
+        existing = set()
+
+        def enum_cb(hwnd, _):
+            existing.add(hwnd)
+            return True
+
+        win32gui.EnumWindows(enum_cb, None)
+        stale = [hwnd for hwnd in list(self._orig_sizes.keys()) if hwnd not in existing]
+        for hwnd in stale:
+            self._orig_sizes.pop(hwnd, None)
 
     @QtCore.Slot(bool)
     def perform(self, restore: bool):
@@ -359,3 +331,46 @@ class ShiftSnapRestore(QtCore.QObject):
             x = left_edge + ((monitor_width - width) // 2)
             y = top_edge + ((monitor_height - height) // 2)
             USER32.MoveWindow(hwnd, x, y, width, height, True)
+
+
+class SnapService:
+    """Narrow API surface for snap/restore actions."""
+
+    def __init__(self, shift_mgr):
+        """Accept a ShiftSnapRestore instance (or None during early init)."""
+        self._mgr = shift_mgr
+        self._listener = None
+
+    def set_manager(self, mgr):
+        """Set or replace the ShiftSnapRestore instance."""
+        self._mgr = mgr
+
+    def set_listener(self, listener):
+        """Set or replace the HotkeyListener instance."""
+        self._listener = listener
+
+    def test_snap(self) -> dict:
+        """Trigger a test snap (same as pressing "Test snap" button)."""
+        if self._mgr is None:
+            return {"ok": False, "error": "Snap manager not initialized"}
+        try:
+            self._mgr.perform(False)
+            return {"ok": True, "message": "Snap test applied to the active window."}
+        except Exception as e:
+            LOG.exception("test_snap failed")
+            return {"ok": False, "error": str(e)}
+
+    def update_binding(self, key: str):
+        """Update the snap key binding."""
+        if self._listener:
+            self._listener.update_binding(key)
+
+    def update_restore_key(self, key: str):
+        """Update the restore key binding."""
+        if self._listener:
+            self._listener.update_restore_key(key)
+
+    def update_press_limit(self, count: int):
+        """Update the snap press count."""
+        if self._listener:
+            self._listener.update_press_limit(count)
