@@ -9,10 +9,10 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Identity
 
-- [ ] **IDENT-01**: All "Windows Toolbox" references removed from source, spec files, and build scripts
-- [ ] **IDENT-02**: All product metadata (name, version, ID, publisher) defined in one source of truth in app_config.py
-- [ ] **IDENT-03**: Version string flows from app_config.py to installer, frontend, and package metadata without manual duplication
-- [ ] **IDENT-04**: Internal migration-phase comments (Phase 7, SC-6, IC-11, v2) removed from production source
+- [x] **IDENT-01**: All "Windows Toolbox" references removed from source, spec files, and build scripts
+- [x] **IDENT-02**: All product metadata (name, version, ID, publisher) defined in one source of truth in app_config.py
+- [x] **IDENT-03**: Version string flows from app_config.py to installer, frontend, and package metadata without manual duplication
+- [x] **IDENT-04**: Internal migration-phase comments (Phase 7, SC-6, IC-11, v2) removed from production source
 
 ### Repository
 
@@ -20,15 +20,15 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 - [ ] **REPO-02**: README explains what Virelo does, Windows-only requirement, admin privileges, build from source, and current status
 - [ ] **REPO-03**: LICENSE file present (MIT)
 - [ ] **REPO-04**: CLAUDE.md provides Claude Code with build commands, conventions, and project layout
-- [ ] **REPO-05**: Deprecated Qt attributes (AA_EnableHighDpiScaling, AA_UseHighDpiPixmaps) removed
+- [x] **REPO-05**: Deprecated Qt attributes (AA_EnableHighDpiScaling, AA_UseHighDpiPixmaps) removed
 
 ### Build
 
 - [ ] **BUILD-01**: Clean checkout produces working app with one command sequence (bootstrap, build frontend, PyInstaller, installer)
 - [ ] **BUILD-02**: Build fails early if npm, node, Python, PyInstaller, or ISCC is missing
 - [ ] **BUILD-03**: Build fails early if frontend/dist is absent after frontend build step
-- [ ] **BUILD-04**: PyInstaller spec renamed from "Windows Toolbox.spec" to "Virelo.spec"
-- [ ] **BUILD-05**: Inno Setup reads version from generated metadata, not hardcoded string
+- [x] **BUILD-04**: PyInstaller spec renamed from "Windows Toolbox.spec" to "Virelo.spec"
+- [x] **BUILD-05**: Inno Setup reads version from generated metadata, not hardcoded string
 - [ ] **BUILD-06**: Installed app launches and loads React frontend offline
 
 ### Security
@@ -142,20 +142,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IDENT-01 | Phase 1 | Pending |
-| IDENT-02 | Phase 1 | Pending |
-| IDENT-03 | Phase 1 | Pending |
-| IDENT-04 | Phase 1 | Pending |
+| IDENT-01 | Phase 1 | Complete |
+| IDENT-02 | Phase 1 | Complete |
+| IDENT-03 | Phase 1 | Complete |
+| IDENT-04 | Phase 1 | Complete |
 | REPO-01 | Phase 1 | Pending |
 | REPO-02 | Phase 1 | Pending |
 | REPO-03 | Phase 1 | Pending |
 | REPO-04 | Phase 1 | Pending |
-| REPO-05 | Phase 1 | Pending |
+| REPO-05 | Phase 1 | Complete |
 | BUILD-01 | Phase 1 | Pending |
 | BUILD-02 | Phase 1 | Pending |
 | BUILD-03 | Phase 1 | Pending |
-| BUILD-04 | Phase 1 | Pending |
-| BUILD-05 | Phase 1 | Pending |
+| BUILD-04 | Phase 1 | Complete |
+| BUILD-05 | Phase 1 | Complete |
 | BUILD-06 | Phase 1 | Pending |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |

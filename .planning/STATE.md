@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-24T17:52:37.371Z"
-last_activity: 2026-04-24 -- Phase 1 planning complete
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-04-24T17:59:12Z"
+last_activity: 2026-04-24 -- Plan 01-01 completed (identity cleanup and version consolidation)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 9
 ---
 
 # Project State
@@ -21,34 +21,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
-**Current focus:** Phase 1 - Hygiene and Build Pipeline
+**Current focus:** Phase 1 — Hygiene and Build Pipeline
 
 ## Current Position
 
-Phase: 1 of 4 (Hygiene and Build Pipeline)
-Plan: 0 of 3 in current phase
-Status: Ready to execute
-Last activity: 2026-04-24 -- Phase 1 planning complete
+Phase: 1 (Hygiene and Build Pipeline) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 1
+Last activity: 2026-04-24 -- Plan 01-01 completed (identity cleanup and version consolidation)
 
-Progress: [..........] 0%
+Progress: [#.........] 9%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: --
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 5min
+- Total execution time: 0.08 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1 | 1 | 5min | 5min |
 
 **Recent Trend:**
 
-- Last 5 plans: --
+- Last 5 plans: 01-01 (5min)
 - Trend: --
 
 *Updated after each plan completion*
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 - [Roadmap]: Coarse granularity -- 4 phases consolidating 9 requirement categories
 - [Roadmap]: Quality tooling and structure merged into one phase (Phase 3) -- quality infra set up first within phase, then used to gate refactoring
 - [Roadmap]: Bridge + Security + Frontend merged into one phase (Phase 2) -- all touch the WebEngine/bridge surface
+- [01-01]: Version set to 1.5.0 as first release under consolidated identity
+- [01-01]: APP_LOG_DIR/APP_LOG_FILE added alongside existing LOG_DIR/LOG_FILE for backward compat
 
 ### Pending Todos
 
@@ -84,6 +86,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-24T17:30:58.376Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-hygiene-and-build-pipeline/01-CONTEXT.md
+Last session: 2026-04-24T17:59:12Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None
