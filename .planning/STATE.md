@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-02 package skeleton and module moves
-last_updated: "2026-04-24T20:20:45Z"
-last_activity: 2026-04-24 -- Completed 03-02-PLAN (package skeleton and leaf/middle-tier module moves)
+stopped_at: Completed 03-03 upper-tier extraction and main.py shim
+last_updated: "2026-04-24T20:38:21Z"
+last_activity: 2026-04-24 -- Completed 03-03-PLAN (upper-tier extraction, thin shim, root files deleted)
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -26,19 +26,19 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 ## Current Position
 
 Phase: 03 (Structure and Quality) -- EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Executing Phase 03
-Last activity: 2026-04-24 -- Completed 03-02-PLAN (package skeleton and module moves)
+Last activity: 2026-04-24 -- Completed 03-03-PLAN (upper-tier extraction, thin shim, root files deleted)
 
-Progress: [#######...] 73%
+Progress: [########..] 82%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 8
-- Average duration: 4min
-- Total execution time: 0.55 hours
+- Total plans completed: 9
+- Average duration: 5min
+- Total execution time: 0.77 hours
 
 **By Phase:**
 
@@ -46,12 +46,12 @@ Progress: [#######...] 73%
 |-------|-------|-------|----------|
 | 1 | 3 | 9min | 3min |
 | 2 | 3 | 11min | 4min |
-| 3 | 2 | 14min | 7min |
+| 3 | 3 | 27min | 9min |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-01 (3min), 02-02 (3min), 02-03 (5min), 03-01 (6min), 03-02 (8min)
-- Trend: stable
+- Last 5 plans: 02-02 (3min), 02-03 (5min), 03-01 (6min), 03-02 (8min), 03-03 (13min)
+- Trend: increasing (structural complexity rising)
 
 *Updated after each plan completion*
 
@@ -86,6 +86,10 @@ Recent decisions affecting current work:
 - [03-02]: theme.py placed at virelo/platform/theme.py (not virelo/services/) per CONTEXT.md D-02
 - [03-02]: theme.py moved early in Task 1 because settings modules import normalize_theme_mode at load time
 - [03-02]: resource_path uses triple dirname to resolve from virelo/platform/ up to project root
+- [03-03]: ShiftSnapRestore placed in virelo/services/snap.py to keep dependency arrow downward (no circular imports)
+- [03-03]: Virelo.spec hiddenimports reference actual virelo.platform.theme/startup locations (not virelo.services/)
+- [03-03]: explorer.py at 1019 lines acceptable -- cohesive COM unit per D-07
+- [03-03]: ruff per-file-ignores for Virelo.spec (F821 PyInstaller globals, UP009 encoding comment)
 
 ### Pending Todos
 
@@ -107,6 +111,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-24T20:20:45Z
-Stopped at: Completed 03-02 package skeleton and module moves
-Resume file: .planning/phases/03-structure-and-quality/03-03-PLAN.md
+Last session: 2026-04-24T20:38:21Z
+Stopped at: Completed 03-03 upper-tier extraction and main.py shim
+Resume file: .planning/phases/03-structure-and-quality/03-04-PLAN.md
