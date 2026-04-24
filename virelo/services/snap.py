@@ -212,12 +212,8 @@ class ShiftSnapRestore(QtCore.QObject):
 
         for widget in QtWidgets.QApplication.topLevelWidgets():
             if int(widget.winId()) == hwnd:
-                center_fn = getattr(widget, "center_on_screen", None)
-                if center_fn is not None:
-                    center_fn()
-                    widget.raise_()
-                    widget.activateWindow()
-                return
+                LOG.debug("Snap: skipping Virelo's own window hwnd=%s", hwnd)
+                return  # Skip entirely per SNAP-03
 
         def refresh_rect():
             rect = wintypes.RECT()
@@ -290,15 +286,8 @@ class ShiftSnapRestore(QtCore.QObject):
 
         for widget in QtWidgets.QApplication.topLevelWidgets():
             if int(widget.winId()) == hwnd:
-                orig = self._orig_sizes.pop(hwnd, None)
-                if not orig:
-                    return
-                rect = orig["rect"] if isinstance(orig, dict) else orig
-                left, top, width, height = rect
-                widget.setGeometry(left, top, width, height)
-                widget.raise_()
-                widget.activateWindow()
-                return
+                LOG.debug("Restore: skipping Virelo's own window hwnd=%s", hwnd)
+                return  # Skip entirely per D-05
         orig = self._orig_sizes.pop(hwnd, None)
         if not orig:
             return
