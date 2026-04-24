@@ -46,13 +46,13 @@ Plans:
   3. No fake controls are visible in the UI -- auto-update, telemetry, hidden files, file extensions, and remember-columns toggles are gone
   4. Every visible toggle, slider, button, and command palette action either calls a real bridge method or has been removed
   5. The bridge returns structured payloads ({ok, data} or {ok, error}) for all operations, and unknown keys produce a structured error response
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
-- [ ] 02-03: TBD
+- [ ] 02-01-PLAN.md -- WebEngine security lockdown (navigation filter, dev mode, context menu, error page)
+- [ ] 02-02-PLAN.md -- Bridge draft state model, structured payloads, and window command slot
+- [ ] 02-03-PLAN.md -- Frontend cleanup (fake control removal, command palette wiring, title bar, draft flow)
 
 ### Phase 3: Structure and Quality
 **Goal**: The codebase is organized as a testable virelo/ package with linting, tests, and CI catching regressions on every push
