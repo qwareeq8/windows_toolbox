@@ -29,6 +29,27 @@ LOG = logging.getLogger("Virelo")
 # Dev mode detection: requires explicit VIRELO_DEV=1 environment variable
 DEV_SERVER_URL = "http://localhost:5173"
 
+_MISSING_FRONTEND_HTML = """<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Virelo</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #e0e0e0;
+         display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .box { max-width: 480px; text-align: center; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 12px; }
+  p { font-size: 14px; color: #999; line-height: 1.6; }
+  code { background: #2a2a2a; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Frontend build not found</h1>
+  <p>The file <code>frontend/dist/index.html</code> is missing.<br>
+  Run <code>scripts/build-frontend.ps1</code> to build the frontend.</p>
+</div>
+</body>
+</html>"""
+
 
 def _resource_path(relative_path: str) -> str:
     """Resolve a relative path to an absolute path.
@@ -55,8 +76,8 @@ def _is_dev_mode() -> bool:
     return os.environ.get("VIRELO_DEV", "").lower() in ("1", "true", "yes")
 
 
-def _get_frontend_url() -> QUrl:
-    """Return the URL for the React frontend."""
+def _get_frontend_url():
+    """Return the URL for the React frontend, or None if missing in release mode."""
     if _is_dev_mode():
         LOG.info("WebView: dev mode -- loading from %s", DEV_SERVER_URL)
         return QUrl(DEV_SERVER_URL)
@@ -67,6 +88,9 @@ def _get_frontend_url() -> QUrl:
             # Fallback: try relative to script directory
             dist_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                       "frontend", "dist", "index.html")
+        if not os.path.exists(dist_path):
+            LOG.error("WebView: frontend build missing at %s", dist_path)
+            return None
         LOG.info("WebView: release mode -- loading from %s", dist_path)
         return QUrl.fromLocalFile(dist_path)
 
@@ -141,11 +165,18 @@ class VireloWebView(QWebEngineView):
 
         # Load the frontend
         url = _get_frontend_url()
-        self.setUrl(url)
-
-        LOG.info("VireloWebView initialized, loading: %s", url.toString())
+        if url is None:
+            page.setHtml(_MISSING_FRONTEND_HTML)
+            LOG.warning("VireloWebView: showing missing frontend error page")
+        else:
+            self.setUrl(url)
+            LOG.info("VireloWebView initialized, loading: %s", url.toString())
 
     def reload_frontend(self):
         """Reload the frontend page."""
         url = _get_frontend_url()
-        self.setUrl(url)
+        if url is None:
+            self.page().setHtml(_MISSING_FRONTEND_HTML)
+            LOG.warning("VireloWebView: showing missing frontend error page")
+        else:
+            self.setUrl(url)
