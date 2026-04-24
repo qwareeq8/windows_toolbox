@@ -68,7 +68,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md -- Quality tooling setup (pyproject.toml, Ruff, pytest config, Vitest config)
-- [ ] 03-02-PLAN.md -- Package skeleton and leaf/middle-tier module moves (platform, settings, services, bridge)
+- [x] 03-02-PLAN.md -- Package skeleton and leaf/middle-tier module moves (platform, settings, services, bridge)
 - [ ] 03-03-PLAN.md -- Upper-tier module moves (workers split, MainWindow extraction, thin shim, Virelo.spec update)
 - [ ] 03-04-PLAN.md -- Python unit tests and frontend Vitest tests
 - [ ] 03-05-PLAN.md -- GitHub Actions CI workflow and CLAUDE.md update
@@ -98,5 +98,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
 | 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
-| 3. Structure and Quality | 1/5 | In progress | - |
+| 3. Structure and Quality | 2/5 | In progress | - |
 | 4. Snap and Explorer Hardening | 0/2 | Not started | - |

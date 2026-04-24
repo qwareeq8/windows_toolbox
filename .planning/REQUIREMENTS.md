@@ -59,12 +59,12 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Structure
 
-- [ ] **STRUCT-01**: Python source organized as virelo/ package with subpackages (app, bridge, services, workers, platform, settings)
+- [x] **STRUCT-01**: Python source organized as virelo/ package with subpackages (app, bridge, services, workers, platform, settings)
 - [ ] **STRUCT-02**: main.py or __main__.py contains only app startup, not business logic
 - [ ] **STRUCT-03**: No source file exceeds 500 lines unless justified
 - [ ] **STRUCT-04**: Snap logic testable without launching the full UI
-- [ ] **STRUCT-05**: Settings validation testable without WebEngine
-- [ ] **STRUCT-06**: Duplicate code consolidated (path canonicalization, resource_path, autosize functions)
+- [x] **STRUCT-05**: Settings validation testable without WebEngine
+- [x] **STRUCT-06**: Duplicate code consolidated (path canonicalization, resource_path, autosize functions)
 
 ### Quality
 
@@ -174,12 +174,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-04 | Phase 2 | Complete |
 | UI-05 | Phase 2 | Complete |
 | UI-06 | Phase 2 | Complete |
-| STRUCT-01 | Phase 3 | Pending |
+| STRUCT-01 | Phase 3 | Complete |
 | STRUCT-02 | Phase 3 | Pending |
 | STRUCT-03 | Phase 3 | Pending |
 | STRUCT-04 | Phase 3 | Pending |
-| STRUCT-05 | Phase 3 | Pending |
-| STRUCT-06 | Phase 3 | Pending |
+| STRUCT-05 | Phase 3 | Complete |
+| STRUCT-06 | Phase 3 | Complete |
 | QUAL-01 | Phase 3 | Complete |
 | QUAL-02 | Phase 3 | Complete |
 | QUAL-03 | Phase 3 | Pending |
