@@ -70,7 +70,7 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 - [x] **QUAL-01**: pyproject.toml defines project metadata, dependencies, and tool configuration
 - [x] **QUAL-02**: Ruff configured for linting and formatting with rules enforced in CI
-- [ ] **QUAL-03**: pytest configured with tests for settings validation, theme resolution, snap geometry, and bridge payloads
+- [x] **QUAL-03**: pytest configured with tests for settings validation, theme resolution, snap geometry, and bridge payloads
 - [x] **QUAL-04**: Frontend tests configured with Vitest for key component behaviors
 - [ ] **QUAL-05**: GitHub Actions CI runs lint, tests, frontend build, and stale-name grep on pull requests
 - [ ] **QUAL-06**: CI fails if "Windows Toolbox" reappears in any source file
@@ -182,7 +182,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STRUCT-06 | Phase 3 | Complete |
 | QUAL-01 | Phase 3 | Complete |
 | QUAL-02 | Phase 3 | Complete |
-| QUAL-03 | Phase 3 | Pending |
+| QUAL-03 | Phase 3 | Complete (03-04) |
 | QUAL-04 | Phase 3 | Complete |
 | QUAL-05 | Phase 3 | Pending |
 | QUAL-06 | Phase 3 | Pending |
