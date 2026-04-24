@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: milestone_complete
-stopped_at: v1.0 milestone archived
-last_updated: "2026-04-24T22:10:00Z"
-last_activity: 2026-04-24 -- v1.0 milestone complete and archived
+milestone: v1.1
+milestone_name: Polish and Correctness
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-04-24T23:00:00Z"
+last_activity: 2026-04-24 -- Milestone v1.1 started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,38 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
-**Current focus:** v1.0 milestone complete — next milestone not started
+**Current focus:** v1.1 Polish and Correctness — defining requirements
 
 ## Current Position
 
-Milestone: v1.0 — COMPLETE (archived)
-Phase: All 4 phases complete (14/14 plans)
-Status: Milestone archived, ready for next milestone
-Last activity: 2026-04-24 -- v1.0 milestone archived
+Milestone: v1.1 — Polish and Correctness
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-24 — Milestone v1.1 started
 
-Progress: [##########] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 14
-- Average duration: 5min
-- Total execution time: 1.02 hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1 | 3 | 9min | 3min |
-| 2 | 3 | 11min | 4min |
-| 3 | 5 | 35min | 7min |
-| 4 | 3 | 11min | 4min |
-
-**Recent Trend:**
-
-- Last 5 plans: 03-04 (6min), 03-05 (2min), 04-01 (4min), 04-03 (3min), 04-02 (4min)
-- Trend: fast plan (service extraction + wiring, no new dependencies)
+- Total plans completed: 0
+- Average duration: —
+- Total execution time: —
 
 *Updated after each plan completion*
 
@@ -63,46 +50,7 @@ Progress: [##########] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [Roadmap]: Coarse granularity -- 4 phases consolidating 9 requirement categories
-- [Roadmap]: Quality tooling and structure merged into one phase (Phase 3) -- quality infra set up first within phase, then used to gate refactoring
-- [Roadmap]: Bridge + Security + Frontend merged into one phase (Phase 2) -- all touch the WebEngine/bridge surface
-- [01-01]: Version set to 1.5.0 as first release under consolidated identity
-- [01-01]: APP_LOG_DIR/APP_LOG_FILE added alongside existing LOG_DIR/LOG_FILE for backward compat
-- [01-02]: CLAUDE.md rewritten from scratch, removing all GSD auto-generated sections
-- [01-02]: Copyright year in LICENSE set to 2024 (project creation year)
-- [01-03]: Build scripts chain via direct invocation (build-installer -> build-app -> build-frontend)
-- [01-03]: Each script validates preconditions and fails early with clear error messages
-- [01-03]: ISCC discovery uses ISCC_PATH env var with Program Files fallback candidates
-- [02-01]: Dev mode requires explicit VIRELO_DEV=1 -- sys.frozen fallback removed
-- [02-01]: data: scheme allowed in navigation filter to support setHtml error pages
-- [02-02]: apply_partial renamed to apply_draft -- stores in draft dict, not QSettings
-- [02-02]: Side effects fire only on commit_draft, not on individual save_settings calls
-- [02-02]: Single setWindowCommand slot with string command (not separate minimize/close slots)
-- [02-02]: get_launch_at_login and get_snap_enabled return structured JSON (result=str), not bare bool
-- [02-03]: set() sends full state to Python draft on every change via bridge.save_settings
-- [02-03]: Command palette callbacks use optional chaining (onSave?.()) for safety
-- [02-03]: TitleBar close button hover uses Windows-standard red (#e81123)
-- [03-01]: Ruff E/F/I/UP rules with line-length 100 and double-quote format as baseline
-- [03-01]: Long log format strings broken via implicit concatenation rather than per-file-ignores
-- [03-02]: theme.py placed at virelo/platform/theme.py (not virelo/services/) per CONTEXT.md D-02
-- [03-02]: theme.py moved early in Task 1 because settings modules import normalize_theme_mode at load time
-- [03-02]: resource_path uses triple dirname to resolve from virelo/platform/ up to project root
-- [03-03]: ShiftSnapRestore placed in virelo/services/snap.py to keep dependency arrow downward (no circular imports)
-- [03-03]: Virelo.spec hiddenimports reference actual virelo.platform.theme/startup locations (not virelo.services/)
-- [03-03]: explorer.py at 1019 lines acceptable -- cohesive COM unit per D-07
-- [03-03]: ruff per-file-ignores for Virelo.spec (F821 PyInstaller globals, UP009 encoding comment)
-- [03-04]: Native module stubs in conftest.py enable unit tests without PySide6/Win32/keyboard
-- [03-04]: bridgeToState/stateToBridge exported from app.jsx for Vitest testability
-- [03-05]: startup.py listed under platform/ in CLAUDE.md (not services/) to match actual file location
-- [03-05]: stale-name CI grep excludes .planning/ to avoid false positives from historical references
-- [04-01]: triggered signal moved from ShiftSnapRestore to HotkeyListener (keyboard detection owns the trigger)
-- [04-01]: SnapService delegates key binding methods to _listener (HotkeyListener) not _mgr (ShiftSnapRestore)
-- [04-01]: Virelo window exclusion returns immediately with LOG.debug instead of centering
-- [04-03]: Used _make_settings() helper instead of conftest MockSettings import (conftest not directly importable from unit test subdir)
-- [04-03]: Used patch create=True for PySide6.QtWidgets.QApplication since conftest stub module lacks that attribute
-- [04-02]: ExplorerService follows SnapService facade pattern (plain class, not QObject)
-- [04-02]: Thin shim _update_explorer_autosize_thread kept to avoid breaking bridge.py callsite
-- [04-02]: Removed unused time import from window.py after extraction
+- [v1.0]: All decisions from v1.0 carry forward — see PROJECT.md Key Decisions
 
 ### Pending Todos
 
@@ -110,13 +58,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- Research flags Phase 3 module splitting as highest-risk work -- must proceed bottom-up (pure functions first, Qt classes last) to avoid circular imports and signal/slot disconnection
-- COM apartment threading: ExplorerAutosizeWorker COM init must stay co-located in same thread during any refactoring
-- Admin elevation not available in GitHub Actions CI -- test tiering (unit vs integration) must be designed in Phase 3
+None yet.
 
 ## Deferred Items
 
-Items acknowledged and deferred at v1.0 milestone close on 2026-04-24:
+Items carried from v1.0:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
@@ -126,5 +72,5 @@ Items acknowledged and deferred at v1.0 milestone close on 2026-04-24:
 ## Session Continuity
 
 Last session: 2026-04-24
-Stopped at: v1.0 milestone archived
-Resume file: .planning/MILESTONES.md
+Stopped at: Milestone v1.1 started — defining requirements
+Resume file: .planning/REQUIREMENTS.md

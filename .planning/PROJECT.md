@@ -8,50 +8,49 @@ Virelo is a personal Windows desktop utility that snaps the foreground window to
 
 The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
 
+## Current Milestone: v1.1 Polish and Correctness
+
+**Goal:** Make every visible UI control contextual, real, and backed by the same Python state model — plus fix CI, repo hygiene, and window chrome.
+
+**Target features:**
+- UI action placement: move Test snap to Window snap page, test current draft, wire dead buttons
+- Bridge correctness: Python-owned dirty state, launch-at-login side effects, key capture via draft, strict booleans, coherent theme
+- CI and repo hygiene: commit required assets, fix stale-name CI, fix Ubuntu CI, sync versions
+- Window chrome and release: title-bar dragging, signed hit testing, smoke-test, release verification
+
 ## Requirements
 
 ### Validated
 
-- ✓ Multi-press keyboard snap resizes and centers the foreground window — existing
-- ✓ Keyboard-triggered restore returns the window to its original size and position — existing
-- ✓ Game mode skips snapping when a fullscreen application is detected — existing
-- ✓ Explorer column auto-size adjusts Detail view columns on folder navigation — existing
-- ✓ System tray icon with show/quit actions — existing
-- ✓ Settings persisted to Windows registry via QSettings — existing
-- ✓ Single-instance mutex prevents duplicate launches — existing
-- ✓ Admin elevation enforced at startup — existing
-- ✓ React frontend renders all settings UI inside QWebEngineView — existing
-- ✓ Dark/light/system theme with accent colors — existing
-- ✓ Command palette for quick actions — existing
-- ✓ Key capture workflow for rebinding snap and restore keys — existing
+- ✓ Multi-press keyboard snap resizes and centers the foreground window — v1.0
+- ✓ Keyboard-triggered restore returns the window to its original size and position — v1.0
+- ✓ Game mode skips snapping when a fullscreen application is detected — v1.0
+- ✓ Explorer column auto-size adjusts Detail view columns on folder navigation — v1.0
+- ✓ System tray icon with show/quit actions — v1.0
+- ✓ Settings persisted to Windows registry via QSettings — v1.0
+- ✓ Single-instance mutex prevents duplicate launches — v1.0
+- ✓ Admin elevation enforced at startup — v1.0
+- ✓ React frontend renders all settings UI inside QWebEngineView — v1.0
+- ✓ Dark/light/system theme with accent colors — v1.0
+- ✓ Command palette for quick actions — v1.0
+- ✓ Key capture workflow for rebinding snap and restore keys — v1.0
+- ✓ All stale naming removed, version consolidated to single source of truth — v1.0
+- ✓ Reproducible build pipeline (bootstrap through installer) — v1.0
+- ✓ WebEngine security lockdown with draft/commit state model — v1.0
+- ✓ Fake controls removed, all UI wired to Python bridge — v1.0
+- ✓ Codebase restructured as testable virelo/ package with CI — v1.0
+- ✓ Hotkey detection separated from window movement, ExplorerService extracted — v1.0
 
 ### Active
 
-- [ ] Prepare a module registry architecture for future personal tools
-- [ ] Preset snap sizes with keyboard cycling
-- [ ] Per-process snap exclusion list
-- [ ] Remember Explorer column widths per folder
+See `.planning/REQUIREMENTS.md` for v1.1 scoped requirements.
 
-### Validated (v1.0)
+### Future
 
-- Multi-press keyboard snap resizes and centers the foreground window
-- Keyboard-triggered restore returns the window to original size/maximized state
-- Game mode skips snapping when a fullscreen application is detected
-- Explorer column auto-size adjusts Detail view columns on folder navigation
-- System tray icon with show/quit actions
-- Settings persisted to Windows registry via QSettings
-- Single-instance mutex prevents duplicate launches
-- Admin elevation enforced at startup
-- React frontend renders all settings UI inside QWebEngineView
-- Dark/light/system theme with accent colors
-- Command palette for quick actions
-- Key capture workflow for rebinding snap and restore keys
-- All stale naming removed, version consolidated to single source of truth
-- Reproducible build pipeline (bootstrap through installer)
-- WebEngine security lockdown with draft/commit state model
-- Fake controls removed, all UI wired to Python bridge
-- Codebase restructured as testable virelo/ package with CI
-- Hotkey detection separated from window movement, ExplorerService extracted
+- Prepare a module registry architecture for future personal tools
+- Preset snap sizes with keyboard cycling
+- Per-process snap exclusion list
+- Remember Explorer column widths per folder
 
 ### Out of Scope
 
@@ -103,4 +102,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after v1.0 milestone*
+*Last updated: 2026-04-24 after v1.1 milestone start*
