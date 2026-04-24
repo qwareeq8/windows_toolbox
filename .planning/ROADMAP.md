@@ -12,7 +12,7 @@ Virelo is a working Windows desktop utility that needs hardening and cleanup bef
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Hygiene and Build Pipeline** - Remove stale naming, create repo files, and establish a reproducible build from clean checkout
+- [x] **Phase 1: Hygiene and Build Pipeline** - Remove stale naming, create repo files, and establish a reproducible build from clean checkout
 - [ ] **Phase 2: Security and Bridge Hardening** - Lock down WebEngine, restructure the bridge with draft state, and wire all frontend controls
 - [ ] **Phase 3: Structure and Quality** - Add quality tooling, split main.py into a virelo package, and establish CI
 - [ ] **Phase 4: Snap and Explorer Hardening** - Extract and harden the snap and Explorer services with tests and correct scope
@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md -- Identity cleanup, version consolidation, and stale reference removal
 - [x] 01-02-PLAN.md -- Repository files (.gitignore, README, LICENSE, CLAUDE.md)
-- [ ] 01-03-PLAN.md -- Build pipeline (6 PowerShell scripts)
+- [x] 01-03-PLAN.md -- Build pipeline (6 PowerShell scripts)
 
 ### Phase 2: Security and Bridge Hardening
 **Goal**: The WebEngine host is locked down for an admin-elevated process, the bridge uses structured draft/commit state management, and every visible frontend control connects to the Python backend
@@ -94,7 +94,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Hygiene and Build Pipeline | 2/3 | In progress | - |
+| 1. Hygiene and Build Pipeline | 3/3 | Complete | 2026-04-24 |
 | 2. Security and Bridge Hardening | 0/3 | Not started | - |
 | 3. Structure and Quality | 0/3 | Not started | - |
 | 4. Snap and Explorer Hardening | 0/2 | Not started | - |

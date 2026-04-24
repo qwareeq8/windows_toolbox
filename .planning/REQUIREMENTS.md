@@ -24,12 +24,12 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Build
 
-- [ ] **BUILD-01**: Clean checkout produces working app with one command sequence (bootstrap, build frontend, PyInstaller, installer)
-- [ ] **BUILD-02**: Build fails early if npm, node, Python, PyInstaller, or ISCC is missing
-- [ ] **BUILD-03**: Build fails early if frontend/dist is absent after frontend build step
+- [x] **BUILD-01**: Clean checkout produces working app with one command sequence (bootstrap, build frontend, PyInstaller, installer)
+- [x] **BUILD-02**: Build fails early if npm, node, Python, PyInstaller, or ISCC is missing
+- [x] **BUILD-03**: Build fails early if frontend/dist is absent after frontend build step
 - [x] **BUILD-04**: PyInstaller spec renamed from "Windows Toolbox.spec" to "Virelo.spec"
 - [x] **BUILD-05**: Inno Setup reads version from generated metadata, not hardcoded string
-- [ ] **BUILD-06**: Installed app launches and loads React frontend offline
+- [x] **BUILD-06**: Installed app launches and loads React frontend offline
 
 ### Security
 
@@ -151,12 +151,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REPO-03 | Phase 1 | Complete |
 | REPO-04 | Phase 1 | Complete |
 | REPO-05 | Phase 1 | Complete |
-| BUILD-01 | Phase 1 | Pending |
-| BUILD-02 | Phase 1 | Pending |
-| BUILD-03 | Phase 1 | Pending |
+| BUILD-01 | Phase 1 | Complete |
+| BUILD-02 | Phase 1 | Complete |
+| BUILD-03 | Phase 1 | Complete |
 | BUILD-04 | Phase 1 | Complete |
 | BUILD-05 | Phase 1 | Complete |
-| BUILD-06 | Phase 1 | Pending |
+| BUILD-06 | Phase 1 | Complete |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |
 | SEC-03 | Phase 2 | Pending |
