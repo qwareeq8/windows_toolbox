@@ -11,7 +11,7 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 
 - [ ] **UI-01**: User sees Test snap only on the Window snap page (Target size card header) and in the command palette, not in the global footer
 - [ ] **UI-02**: User can test snap with current visible draft values without saving first
-- [ ] **UI-03**: User sees footer containing only status message, dirty indicator, Discard, and Save — no Reset defaults button
+- [ ] **UI-03**: User sees footer containing only status message, dirty indicator, Discard, and Save -- no Reset defaults button
 - [ ] **UI-04**: User can reset all settings to defaults from General page with a confirmation dialog
 - [ ] **UI-05**: User can rebind snap and restore keys via key capture controls (press key to bind) instead of segmented SHIFT/CTRL/ALT controls
 - [ ] **UI-06**: User sees Shortcuts page with accurate subtitle and no misleading rebind interaction hints
@@ -35,7 +35,7 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 - [ ] **CI-05**: Frontend package.json version is synchronized with APP_VERSION from config.py
 - [ ] **CI-06**: README states correct Python version requirement matching pyproject.toml (3.12+)
 - [ ] **CI-07**: Installer support URL and config.py support URL use the same source of truth
-- [ ] **CI-08**: Stale class names renamed to reflect configurable keys (ShiftSnapRestore → SnapRestoreController, HotkeyListener → MultiPressHotkeyListener)
+- [ ] **CI-08**: Stale class names renamed to reflect configurable keys (ShiftSnapRestore -> SnapRestoreController, HotkeyListener -> MultiPressHotkeyListener)
 
 ### Window Chrome and Release
 
@@ -78,40 +78,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
-| UI-05 | — | Pending |
-| UI-06 | — | Pending |
-| UI-07 | — | Pending |
-| BRDG-01 | — | Pending |
-| BRDG-02 | — | Pending |
-| BRDG-03 | — | Pending |
-| BRDG-04 | — | Pending |
-| BRDG-05 | — | Pending |
-| BRDG-06 | — | Pending |
-| CI-01 | — | Pending |
-| CI-02 | — | Pending |
-| CI-03 | — | Pending |
-| CI-04 | — | Pending |
-| CI-05 | — | Pending |
-| CI-06 | — | Pending |
-| CI-07 | — | Pending |
-| CI-08 | — | Pending |
-| CHRM-01 | — | Pending |
-| CHRM-02 | — | Pending |
-| CHRM-03 | — | Pending |
-| CHRM-04 | — | Pending |
-| CHRM-05 | — | Pending |
-| CHRM-06 | — | Pending |
-| CHRM-07 | — | Pending |
+| BRDG-01 | Phase 5 | Pending |
+| BRDG-02 | Phase 5 | Pending |
+| BRDG-03 | Phase 5 | Pending |
+| BRDG-04 | Phase 5 | Pending |
+| BRDG-05 | Phase 5 | Pending |
+| BRDG-06 | Phase 5 | Pending |
+| UI-01 | Phase 6 | Pending |
+| UI-02 | Phase 6 | Pending |
+| UI-03 | Phase 6 | Pending |
+| UI-04 | Phase 6 | Pending |
+| UI-05 | Phase 6 | Pending |
+| UI-06 | Phase 6 | Pending |
+| UI-07 | Phase 6 | Pending |
+| CI-01 | Phase 7 | Pending |
+| CI-02 | Phase 7 | Pending |
+| CI-03 | Phase 7 | Pending |
+| CI-04 | Phase 7 | Pending |
+| CI-05 | Phase 7 | Pending |
+| CI-06 | Phase 7 | Pending |
+| CI-07 | Phase 7 | Pending |
+| CI-08 | Phase 7 | Pending |
+| CHRM-01 | Phase 8 | Pending |
+| CHRM-02 | Phase 8 | Pending |
+| CHRM-03 | Phase 8 | Pending |
+| CHRM-04 | Phase 8 | Pending |
+| CHRM-05 | Phase 8 | Pending |
+| CHRM-06 | Phase 8 | Pending |
+| CHRM-07 | Phase 8 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28 ⚠️
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-24*
-*Last updated: 2026-04-24 after initial definition*
+*Last updated: 2026-04-24 after roadmap creation*
