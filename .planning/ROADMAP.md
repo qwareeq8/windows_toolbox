@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Identity cleanup, version consolidation, and stale reference removal
-- [ ] 01-02-PLAN.md -- Repository files (.gitignore, README, LICENSE, CLAUDE.md)
+- [x] 01-02-PLAN.md -- Repository files (.gitignore, README, LICENSE, CLAUDE.md)
 - [ ] 01-03-PLAN.md -- Build pipeline (6 PowerShell scripts)
 
 ### Phase 2: Security and Bridge Hardening
@@ -94,7 +94,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Hygiene and Build Pipeline | 1/3 | In progress | - |
+| 1. Hygiene and Build Pipeline | 2/3 | In progress | - |
 | 2. Security and Bridge Hardening | 0/3 | Not started | - |
 | 3. Structure and Quality | 0/3 | Not started | - |
 | 4. Snap and Explorer Hardening | 0/2 | Not started | - |

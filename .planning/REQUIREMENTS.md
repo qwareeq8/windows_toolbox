@@ -16,10 +16,10 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Repository
 
-- [ ] **REPO-01**: .gitignore excludes all generated artifacts (.venv, __pycache__, build, dist, frontend/node_modules, frontend/dist, logs)
-- [ ] **REPO-02**: README explains what Virelo does, Windows-only requirement, admin privileges, build from source, and current status
-- [ ] **REPO-03**: LICENSE file present (MIT)
-- [ ] **REPO-04**: CLAUDE.md provides Claude Code with build commands, conventions, and project layout
+- [x] **REPO-01**: .gitignore excludes all generated artifacts (.venv, __pycache__, build, dist, frontend/node_modules, frontend/dist, logs)
+- [x] **REPO-02**: README explains what Virelo does, Windows-only requirement, admin privileges, build from source, and current status
+- [x] **REPO-03**: LICENSE file present (MIT)
+- [x] **REPO-04**: CLAUDE.md provides Claude Code with build commands, conventions, and project layout
 - [x] **REPO-05**: Deprecated Qt attributes (AA_EnableHighDpiScaling, AA_UseHighDpiPixmaps) removed
 
 ### Build
@@ -146,10 +146,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IDENT-02 | Phase 1 | Complete |
 | IDENT-03 | Phase 1 | Complete |
 | IDENT-04 | Phase 1 | Complete |
-| REPO-01 | Phase 1 | Pending |
-| REPO-02 | Phase 1 | Pending |
-| REPO-03 | Phase 1 | Pending |
-| REPO-04 | Phase 1 | Pending |
+| REPO-01 | Phase 1 | Complete |
+| REPO-02 | Phase 1 | Complete |
+| REPO-03 | Phase 1 | Complete |
+| REPO-04 | Phase 1 | Complete |
 | REPO-05 | Phase 1 | Complete |
 | BUILD-01 | Phase 1 | Pending |
 | BUILD-02 | Phase 1 | Pending |
