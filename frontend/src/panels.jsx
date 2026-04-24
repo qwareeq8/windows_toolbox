@@ -5,7 +5,7 @@ import { useTokens, useTheme } from './theme.jsx';
 import { Kbd } from './primitives.jsx';
 import { Icon } from './icons.jsx';
 
-function CommandPalette({ open, onClose, app, setNav }) {
+function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave, onReset }) {
   const t = useTokens();
   const { tweaks, setTweaks } = useTheme();
   const [q, setQ] = React.useState('');
@@ -22,9 +22,9 @@ function CommandPalette({ open, onClose, app, setNav }) {
     { grp: 'Navigate', label: 'Go to Shortcuts',         run: () => setNav('keys'),     icon: 'keyb' },
     { grp: 'Navigate', label: 'Go to General',           run: () => setNav('gen'),      icon: 'general' },
     { grp: 'Navigate', label: 'Go to About',             run: () => setNav('about'),    icon: 'about' },
-    { grp: 'Actions',  label: 'Test snap',               run: () => {},                 icon: 'play', kbd: '⏎' },
-    { grp: 'Actions',  label: 'Save changes',            run: () => app.set({ _saved: true }), icon: 'check' },
-    { grp: 'Actions',  label: 'Reset to defaults',       run: () => {},                 icon: 'reset' },
+    { grp: 'Actions',  label: 'Test snap',               run: () => onTestSnap?.(),     icon: 'play', kbd: '⏎' },
+    { grp: 'Actions',  label: 'Save changes',            run: () => onSave?.(),         icon: 'check' },
+    { grp: 'Actions',  label: 'Reset to defaults',       run: () => onReset?.(),        icon: 'reset' },
     { grp: 'Actions',  label: app.snapEnabled ? 'Disable snap' : 'Enable snap', run: () => app.set({ snapEnabled: !app.snapEnabled }), icon: 'dot' },
     { grp: 'Actions',  label: app.gameMode ? 'Disable game mode' : 'Enable game mode', run: () => app.set({ gameMode: !app.gameMode }), icon: 'dot' },
     { grp: 'Theme',    label: tweaks.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', run: () => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' }), icon: 'spark' },
@@ -33,7 +33,7 @@ function CommandPalette({ open, onClose, app, setNav }) {
     { grp: 'Theme',    label: 'Accent: Blue',   run: () => setTweaks({ accent: 'blue' }),   icon: 'dot' },
     { grp: 'Theme',    label: 'Accent: Rust',   run: () => setTweaks({ accent: 'rust' }),   icon: 'dot' },
     { grp: 'Theme',    label: 'Accent: Purple', run: () => setTweaks({ accent: 'purple' }), icon: 'dot' },
-  ], [app, tweaks, setTweaks, setNav]);
+  ], [app, tweaks, setTweaks, setNav, onTestSnap, onSave, onReset]);
 
   const filtered = q.trim()
     ? commands.filter(c => c.label.toLowerCase().includes(q.toLowerCase()))

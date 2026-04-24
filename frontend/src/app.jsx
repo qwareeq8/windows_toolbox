@@ -7,7 +7,7 @@ import { CommandPalette } from './panels.jsx';
 import { Button, Badge } from './primitives.jsx';
 import { Icon } from './icons.jsx';
 
-function TitleBar({ onOpenPalette }) {
+function TitleBar({ onOpenPalette, bridge }) {
   const t = useTokens();
   return (
     <div style={{
@@ -32,10 +32,20 @@ function TitleBar({ onOpenPalette }) {
       </button>
 
       <div style={{ flex: 1 }} />
-      {['—','▢','×'].map((g, i) => (
-        <div key={i} style={{ width: 28, height: 26, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', color: t.textDim, fontSize: 10 }}>{g}</div>
-      ))}
+      <button onClick={() => bridge.setWindowCommand('minimize', () => {})}
+        style={{ width: 28, height: 26, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', color: t.textDim, fontSize: 10,
+          background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        onMouseEnter={(e) => e.currentTarget.style.background = t.hover}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      >{'—'}</button>
+      <button onClick={() => bridge.setWindowCommand('close', () => {})}
+        style={{ width: 28, height: 26, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', color: t.textDim, fontSize: 10,
+          background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        onMouseEnter={(e) => e.currentTarget.style.background = '#e81123'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+      >{'x'}</button>
     </div>
   );
 }
@@ -184,8 +194,10 @@ export default function VireloApp({ bridge }) {
   React.useEffect(() => {
     bridge.get_settings((json) => {
       try {
-        const settings = JSON.parse(json);
-        setState(bridgeToState(settings));
+        const r = JSON.parse(json);
+        if (r.ok && r.data) {
+          setState(bridgeToState(r.data));
+        }
       } catch (e) {
         console.error('[app] Failed to parse initial settings:', e);
       }
@@ -214,28 +226,36 @@ export default function VireloApp({ bridge }) {
     });
   }, [bridge]);
 
-  const set = (p) => { setState((s) => ({ ...s, ...p })); setUnsaved(true); };
+  const set = (p) => {
+    setState((s) => {
+      const next = { ...s, ...p };
+      // Send partial update to Python draft model
+      bridge.save_settings(stateToBridge(next), () => {});
+      return next;
+    });
+    setUnsaved(true);
+  };
   const app = { ...state, set };
 
   const handleSave = () => {
-    bridge.save_settings(stateToBridge(state), (result) => {
+    bridge.commit_draft((result) => {
       try {
         const r = JSON.parse(result);
         if (r.ok) setUnsaved(false);
+        else console.error('[app] commit_draft failed:', r.error);
       } catch (e) {
-        console.error('[app] Failed to parse save result:', e);
+        console.error('[app] Failed to parse commit_draft result:', e);
       }
     });
   };
 
   const handleDiscard = () => {
-    bridge.get_settings((json) => {
+    bridge.discard_draft((result) => {
       try {
-        const settings = JSON.parse(json);
-        setState(bridgeToState(settings));
-        setUnsaved(false);
+        const r = JSON.parse(result);
+        if (r.ok) setUnsaved(false);
       } catch (e) {
-        console.error('[app] Failed to parse settings on discard:', e);
+        console.error('[app] Failed to parse discard_draft result:', e);
       }
     });
   };
@@ -243,9 +263,11 @@ export default function VireloApp({ bridge }) {
   const handleReset = () => {
     bridge.reset_defaults((json) => {
       try {
-        const settings = JSON.parse(json);
-        setState(bridgeToState(settings));
-        setUnsaved(false);
+        const r = JSON.parse(json);
+        if (r.ok && r.data) {
+          setState(bridgeToState(r.data));
+          setUnsaved(false);
+        }
       } catch (e) {
         console.error('[app] Failed to parse reset_defaults result:', e);
       }
@@ -288,7 +310,7 @@ export default function VireloApp({ bridge }) {
       display: 'flex', flexDirection: 'column',
       position: 'relative',
     }}>
-      <TitleBar onOpenPalette={() => setPalette(true)} />
+      <TitleBar onOpenPalette={() => setPalette(true)} bridge={bridge} />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Sidebar nav={nav} setNav={setNav} app={app} mode={tweaks.sidebarMode} />
         <div style={{ flex: 1, overflowY: 'auto', padding: `${t.cardPad + 8}px ${t.cardPad + 14}px ${t.cardPad + 8}px` }}>
@@ -304,7 +326,8 @@ export default function VireloApp({ bridge }) {
         onTestSnap={handleTestSnap}
         statusMsg={statusMsg}
       />
-      <CommandPalette open={palette} onClose={() => setPalette(false)} app={app} setNav={setNav} />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} app={app} setNav={setNav}
+        onTestSnap={handleTestSnap} onSave={handleSave} onReset={handleReset} />
     </div>
   );
 }
