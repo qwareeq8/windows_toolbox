@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 3 complete — all 5 plans executed, verified
-last_updated: "2026-04-24T21:06:23.132Z"
-last_activity: 2026-04-24 -- Completed 03-05-PLAN (CI workflow + CLAUDE.md update)
+status: executing
+stopped_at: Phase 4 context gathered
+last_updated: "2026-04-24T21:37:02Z"
+last_activity: 2026-04-24 -- Completed 04-01-PLAN.md
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
+  total_plans: 14
+  completed_plans: 12
+  percent: 86
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
-**Current focus:** Phase 04 — Snap and Explorer Hardening
+**Current focus:** Phase 04 — snap-and-explorer-hardening
 
 ## Current Position
 
-Phase: 04 (Snap and Explorer Hardening) -- Plans ready
-Plan: 0 of 3 (READY)
-Status: Phase 04 planned — 3 plans in 2 waves, verified
-Last activity: 2026-04-24 -- Phase 04 plans created and verified
+Phase: 04 (snap-and-explorer-hardening) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 04
+Last activity: 2026-04-24 -- Completed 04-01-PLAN.md
 
-Progress: [##########] 100%
+Progress: [########--] 86%
 
 ## Performance Metrics
 
@@ -50,8 +50,8 @@ Progress: [##########] 100%
 
 **Recent Trend:**
 
-- Last 5 plans: 03-01 (6min), 03-02 (8min), 03-03 (13min), 03-04 (6min), 03-05 (2min)
-- Trend: final plan very fast (CI config + docs only, no code refactoring)
+- Last 5 plans: 03-02 (8min), 03-03 (13min), 03-04 (6min), 03-05 (2min), 04-01 (4min)
+- Trend: fast plan (single-file refactor + behavior fix, no new dependencies)
 
 *Updated after each plan completion*
 
@@ -94,6 +94,9 @@ Recent decisions affecting current work:
 - [03-04]: bridgeToState/stateToBridge exported from app.jsx for Vitest testability
 - [03-05]: startup.py listed under platform/ in CLAUDE.md (not services/) to match actual file location
 - [03-05]: stale-name CI grep excludes .planning/ to avoid false positives from historical references
+- [04-01]: triggered signal moved from ShiftSnapRestore to HotkeyListener (keyboard detection owns the trigger)
+- [04-01]: SnapService delegates key binding methods to _listener (HotkeyListener) not _mgr (ShiftSnapRestore)
+- [04-01]: Virelo window exclusion returns immediately with LOG.debug instead of centering
 
 ### Pending Todos
 
@@ -116,5 +119,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-24
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-snap-and-explorer-hardening/04-CONTEXT.md
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-snap-and-explorer-hardening/04-02-PLAN.md

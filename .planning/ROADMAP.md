@@ -86,7 +86,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- HotkeyListener extraction, Virelo window exclusion, SnapService delegation update
+- [x] 04-01-PLAN.md -- HotkeyListener extraction, Virelo window exclusion, SnapService delegation update
 - [ ] 04-02-PLAN.md -- ExplorerService creation, MainWindow and bridge wiring
 - [ ] 04-03-PLAN.md -- Multi-monitor geometry and maximized-restore unit tests
 
@@ -100,4 +100,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
 | 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
 | 3. Structure and Quality | 5/5 | Complete | 2026-04-24 |
-| 4. Snap and Explorer Hardening | 0/3 | Not started | - |
+| 4. Snap and Explorer Hardening | 1/3 | In Progress | - |

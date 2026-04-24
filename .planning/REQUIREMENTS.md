@@ -77,10 +77,10 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 
 ### Snap
 
-- [ ] **SNAP-01**: Snap logic extracted from main.py into a dedicated service module
-- [ ] **SNAP-02**: Hotkey detection separated from window movement logic
-- [ ] **SNAP-03**: Virelo's own window excluded from snapping
-- [ ] **SNAP-04**: Restore correctly handles previously-maximized windows
+- [x] **SNAP-01**: Snap logic extracted from main.py into a dedicated service module
+- [x] **SNAP-02**: Hotkey detection separated from window movement logic
+- [x] **SNAP-03**: Virelo's own window excluded from snapping
+- [x] **SNAP-04**: Restore correctly handles previously-maximized windows
 - [ ] **SNAP-05**: Geometry calculations have unit tests covering multi-monitor scenarios
 
 ### Explorer
@@ -186,10 +186,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUAL-04 | Phase 3 | Complete |
 | QUAL-05 | Phase 3 | Complete |
 | QUAL-06 | Phase 3 | Complete |
-| SNAP-01 | Phase 4 | Pending |
-| SNAP-02 | Phase 4 | Pending |
-| SNAP-03 | Phase 4 | Pending |
-| SNAP-04 | Phase 4 | Pending |
+| SNAP-01 | Phase 4 | Complete (04-01) |
+| SNAP-02 | Phase 4 | Complete (04-01) |
+| SNAP-03 | Phase 4 | Complete (04-01) |
+| SNAP-04 | Phase 4 | Complete (04-01) |
 | SNAP-05 | Phase 4 | Pending |
 | EXPL-01 | Phase 4 | Pending |
 | EXPL-02 | Phase 4 | Pending |

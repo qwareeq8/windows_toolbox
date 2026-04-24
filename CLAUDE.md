@@ -53,7 +53,7 @@ python main.py
     - `bridge.py` -- QWebChannel bridge (VireloBridge QObject)
     - `capture_guard.py` -- Thread-safe key capture mutex
   - `services/` -- Business logic
-    - `snap.py` -- Snap service facade, ShiftSnapRestore engine, geometry calculations
+    - `snap.py` -- HotkeyListener (keyboard detection), ShiftSnapRestore (window movement), SnapService facade, geometry calculations
     - `explorer_columns.py` -- COM-based Explorer column autosize
   - `workers/` -- Background QThread workers
     - `key_capture.py` -- KeyCaptureWorker and KeyCaptureSession
