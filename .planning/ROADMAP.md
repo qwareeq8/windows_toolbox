@@ -83,11 +83,12 @@ Plans:
   3. Snap geometry calculations have unit tests covering at least: single monitor, two-monitor horizontal layout, and a monitor with negative coordinates
   4. Explorer settings page shows only the auto-size columns feature (no hidden-files, file-extensions, or remember-columns controls)
   5. Explorer worker starts only when its setting is enabled, stops cleanly on quit, and its orchestration logic lives in a service module rather than MainWindow
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- HotkeyListener extraction, Virelo window exclusion, SnapService delegation update
+- [ ] 04-02-PLAN.md -- ExplorerService creation, MainWindow and bridge wiring
+- [ ] 04-03-PLAN.md -- Multi-monitor geometry and maximized-restore unit tests
 
 ## Progress
 
@@ -99,4 +100,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Hygiene and Build Pipeline | 3/3 | Complete   | 2026-04-24 |
 | 2. Security and Bridge Hardening | 3/3 | Complete | 2026-04-24 |
 | 3. Structure and Quality | 5/5 | Complete | 2026-04-24 |
-| 4. Snap and Explorer Hardening | 0/2 | Not started | - |
+| 4. Snap and Explorer Hardening | 0/3 | Not started | - |
