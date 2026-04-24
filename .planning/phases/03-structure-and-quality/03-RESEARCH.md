@@ -797,22 +797,13 @@ These MUST be honored during implementation:
 | A4 | Ruff rules E, F, I, UP will not produce excessive noise on the existing codebase | Common Pitfalls (Pitfall 5) | Low risk -- E/F are standard, I just reorders imports, UP only modernizes syntax. May need a few `per-file-ignores`. |
 | A5 | PyInstaller will find all modules with explicit `hiddenimports` in the spec | Common Pitfalls (Pitfall 3) | Medium risk -- need to verify by running `pyinstaller` after restructuring. Some dynamic imports may be missed. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Platform-guarded imports for CI compatibility**
-   - What we know: Unit tests run on Ubuntu (D-15). The `virelo/platform/` modules import `ctypes.windll`, `win32gui`, `win32api`, etc., which don't exist on Linux.
-   - What's unclear: How deeply do platform imports propagate? If `virelo/__init__.py` transitively imports platform code, even unit tests will fail on Ubuntu.
-   - Recommendation: Make `virelo/platform/__init__.py` lazy -- only import platform modules when explicitly requested, not at package init time. Unit test files import specific non-platform modules directly. The CI `pytest tests/unit/` command should not trigger any Win32 imports.
+1. **Platform-guarded imports for CI compatibility** — RESOLVED: Plan 02 makes `virelo/platform/__init__.py` lazy (no transitive Win32 imports). Plan 04 unit tests import non-platform modules directly. CI runs `pytest tests/unit/` on Ubuntu without triggering Win32 imports.
 
-2. **`bridgeToState`/`stateToBridge` export strategy**
-   - What we know: These functions are defined inside `app.jsx` but not exported. Vitest needs to call them.
-   - What's unclear: Whether exporting them adds a public API surface that creates maintenance burden.
-   - Recommendation: Export as named exports from `app.jsx`. They are pure mapping functions with no side effects. Alternative: extract to `frontend/src/mapping.js` if export from `app.jsx` is undesirable.
+2. **`bridgeToState`/`stateToBridge` export strategy** — RESOLVED: Plan 04 Task 2 exports both as named exports from `app.jsx`. They are pure mapping functions with no side effects.
 
-3. **Ruff `per-file-ignores` scope**
-   - What we know: D-11 specifies rules E, F, I, UP. The existing codebase may have patterns that violate these.
-   - What's unclear: How many existing violations exist and whether fixing them all in Phase 3 is safe.
-   - Recommendation: Run `ruff check .` on the codebase before committing the config. Fix auto-fixable issues (`ruff check --fix`). Add targeted `per-file-ignores` only for violations that require logic changes beyond the scope of Phase 3.
+3. **Ruff `per-file-ignores` scope** — RESOLVED: Plan 01 Task 1 configures E, F, I, UP rules with `per-file-ignores` for `__init__.py` files (F401). Executor runs `ruff check --fix` to auto-fix safe violations before committing config.
 
 ## Environment Availability
 
