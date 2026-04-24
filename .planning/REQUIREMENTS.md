@@ -1,0 +1,205 @@
+# Requirements: Virelo
+
+**Defined:** 2026-04-24
+**Core Value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
+
+## v1 Requirements
+
+Requirements for the hardening and cleanup milestone. Each maps to roadmap phases.
+
+### Identity
+
+- [ ] **IDENT-01**: All "Windows Toolbox" references removed from source, spec files, and build scripts
+- [ ] **IDENT-02**: All product metadata (name, version, ID, publisher) defined in one source of truth in app_config.py
+- [ ] **IDENT-03**: Version string flows from app_config.py to installer, frontend, and package metadata without manual duplication
+- [ ] **IDENT-04**: Internal migration-phase comments (Phase 7, SC-6, IC-11, v2) removed from production source
+
+### Repository
+
+- [ ] **REPO-01**: .gitignore excludes all generated artifacts (.venv, __pycache__, build, dist, frontend/node_modules, frontend/dist, logs)
+- [ ] **REPO-02**: README explains what Virelo does, Windows-only requirement, admin privileges, build from source, and current status
+- [ ] **REPO-03**: LICENSE file present (MIT)
+- [ ] **REPO-04**: CLAUDE.md provides Claude Code with build commands, conventions, and project layout
+- [ ] **REPO-05**: Deprecated Qt attributes (AA_EnableHighDpiScaling, AA_UseHighDpiPixmaps) removed
+
+### Build
+
+- [ ] **BUILD-01**: Clean checkout produces working app with one command sequence (bootstrap, build frontend, PyInstaller, installer)
+- [ ] **BUILD-02**: Build fails early if npm, node, Python, PyInstaller, or ISCC is missing
+- [ ] **BUILD-03**: Build fails early if frontend/dist is absent after frontend build step
+- [ ] **BUILD-04**: PyInstaller spec renamed from "Windows Toolbox.spec" to "Virelo.spec"
+- [ ] **BUILD-05**: Inno Setup reads version from generated metadata, not hardcoded string
+- [ ] **BUILD-06**: Installed app launches and loads React frontend offline
+
+### Security
+
+- [ ] **SEC-01**: WebEngine blocks external navigation via acceptNavigationRequest override
+- [ ] **SEC-02**: LocalContentCanAccessRemoteUrls disabled in release mode
+- [ ] **SEC-03**: Dev mode triggered only by VIRELO_DEV=1 environment variable, not sys.frozen check
+- [ ] **SEC-04**: Missing frontend build shows clear error message, not blank page
+- [ ] **SEC-05**: Default WebEngine context menu disabled in release mode
+
+### Bridge
+
+- [ ] **BRDG-01**: Python-side draft model holds unsaved changes separately from persisted settings
+- [ ] **BRDG-02**: Save commits draft to QSettings and applies side effects (startup shortcut, snap manager, Explorer worker)
+- [ ] **BRDG-03**: Discard reverts draft to persisted settings and reapplies runtime bindings
+- [ ] **BRDG-04**: Unknown bridge keys rejected with structured error, not silently dropped
+- [ ] **BRDG-05**: Bridge returns structured payloads ({ok, data} or {ok, error}) for all operations
+- [ ] **BRDG-06**: Launch-at-login toggle creates or removes startup shortcut on save
+
+### Frontend
+
+- [ ] **UI-01**: Fake controls removed (auto-update, telemetry, hidden files, file extensions, remember columns)
+- [ ] **UI-02**: No-op command palette actions removed or wired to real bridge calls
+- [ ] **UI-03**: Title bar minimize and close call bridge setWindowCommand and work in frameless window
+- [ ] **UI-04**: Key capture uses bridge startKeyCapture/cancelKeyCapture, shows "Press a key" during capture
+- [ ] **UI-05**: Every visible toggle, slider, and button connects to the Python bridge
+- [ ] **UI-06**: React state survives save, discard, reset, and external Python-pushed updates
+
+### Structure
+
+- [ ] **STRUCT-01**: Python source organized as virelo/ package with subpackages (app, bridge, services, workers, platform, settings)
+- [ ] **STRUCT-02**: main.py or __main__.py contains only app startup, not business logic
+- [ ] **STRUCT-03**: No source file exceeds 500 lines unless justified
+- [ ] **STRUCT-04**: Snap logic testable without launching the full UI
+- [ ] **STRUCT-05**: Settings validation testable without WebEngine
+- [ ] **STRUCT-06**: Duplicate code consolidated (path canonicalization, resource_path, autosize functions)
+
+### Quality
+
+- [ ] **QUAL-01**: pyproject.toml defines project metadata, dependencies, and tool configuration
+- [ ] **QUAL-02**: Ruff configured for linting and formatting with rules enforced in CI
+- [ ] **QUAL-03**: pytest configured with tests for settings validation, theme resolution, snap geometry, and bridge payloads
+- [ ] **QUAL-04**: Frontend tests configured with Vitest for key component behaviors
+- [ ] **QUAL-05**: GitHub Actions CI runs lint, tests, frontend build, and stale-name grep on pull requests
+- [ ] **QUAL-06**: CI fails if "Windows Toolbox" reappears in any source file
+
+### Snap
+
+- [ ] **SNAP-01**: Snap logic extracted from main.py into a dedicated service module
+- [ ] **SNAP-02**: Hotkey detection separated from window movement logic
+- [ ] **SNAP-03**: Virelo's own window excluded from snapping
+- [ ] **SNAP-04**: Restore correctly handles previously-maximized windows
+- [ ] **SNAP-05**: Geometry calculations have unit tests covering multi-monitor scenarios
+
+### Explorer
+
+- [ ] **EXPL-01**: Explorer page shows only implemented features (auto-size columns)
+- [ ] **EXPL-02**: Explorer worker orchestration moved out of MainWindow into a service
+- [ ] **EXPL-03**: Explorer worker starts only when the setting is enabled and stops cleanly on quit
+
+## v2 Requirements
+
+Deferred to future milestone. Tracked but not in current roadmap.
+
+### Explorer Enhancements
+
+- **EXPL-10**: Remember column widths per folder
+- **EXPL-11**: Show/hide hidden files toggle
+- **EXPL-12**: Show/hide file extensions toggle
+
+### Snap Enhancements
+
+- **SNAP-10**: Preset snap sizes (50%, 66%, 76%, 90%)
+- **SNAP-11**: Cycle preset sizes via keyboard shortcut
+- **SNAP-12**: Per-process exclusion list
+- **SNAP-13**: Snap diagnostics command ("Why did snap not run?")
+
+### Module Architecture
+
+- **ARCH-01**: Internal module registry with ModuleInfo dataclass
+- **ARCH-02**: Snap and Explorer registered as modules
+- **ARCH-03**: Adding a new feature does not require editing five unrelated files
+
+### Future Tools
+
+- **TOOL-01**: Window layout presets
+- **TOOL-02**: Monitor profile presets
+- **TOOL-03**: Clipboard utilities
+- **TOOL-04**: Diagnostics and logs viewer
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Plugin system / third-party extensibility | Personal-use tool, internal registry sufficient |
+| Cross-platform support | Deep Win32/COM dependency, porting is a rewrite |
+| Auto-update mechanism | No update server, no code signing, no infrastructure |
+| Telemetry / analytics | Personal tool, one user, no benefit |
+| Code signing certificate | $200-400/year cost for personal tool with one user |
+| MSI installer | Inno Setup works and is already configured |
+| Documentation website | README + CLAUDE.md sufficient for personal tool |
+| Internationalization | Single-user, English-only tool |
+| Custom crash reporting service | Local crash.log and virelo.log sufficient |
+| Mobile or web deployment | Desktop-only by design |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| IDENT-01 | — | Pending |
+| IDENT-02 | — | Pending |
+| IDENT-03 | — | Pending |
+| IDENT-04 | — | Pending |
+| REPO-01 | — | Pending |
+| REPO-02 | — | Pending |
+| REPO-03 | — | Pending |
+| REPO-04 | — | Pending |
+| REPO-05 | — | Pending |
+| BUILD-01 | — | Pending |
+| BUILD-02 | — | Pending |
+| BUILD-03 | — | Pending |
+| BUILD-04 | — | Pending |
+| BUILD-05 | — | Pending |
+| BUILD-06 | — | Pending |
+| SEC-01 | — | Pending |
+| SEC-02 | — | Pending |
+| SEC-03 | — | Pending |
+| SEC-04 | — | Pending |
+| SEC-05 | — | Pending |
+| BRDG-01 | — | Pending |
+| BRDG-02 | — | Pending |
+| BRDG-03 | — | Pending |
+| BRDG-04 | — | Pending |
+| BRDG-05 | — | Pending |
+| BRDG-06 | — | Pending |
+| UI-01 | — | Pending |
+| UI-02 | — | Pending |
+| UI-03 | — | Pending |
+| UI-04 | — | Pending |
+| UI-05 | — | Pending |
+| UI-06 | — | Pending |
+| STRUCT-01 | — | Pending |
+| STRUCT-02 | — | Pending |
+| STRUCT-03 | — | Pending |
+| STRUCT-04 | — | Pending |
+| STRUCT-05 | — | Pending |
+| STRUCT-06 | — | Pending |
+| QUAL-01 | — | Pending |
+| QUAL-02 | — | Pending |
+| QUAL-03 | — | Pending |
+| QUAL-04 | — | Pending |
+| QUAL-05 | — | Pending |
+| QUAL-06 | — | Pending |
+| SNAP-01 | — | Pending |
+| SNAP-02 | — | Pending |
+| SNAP-03 | — | Pending |
+| SNAP-04 | — | Pending |
+| SNAP-05 | — | Pending |
+| EXPL-01 | — | Pending |
+| EXPL-02 | — | Pending |
+| EXPL-03 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 48 total
+- Mapped to phases: 0
+- Unmapped: 48
+
+---
+*Requirements defined: 2026-04-24*
+*Last updated: 2026-04-24 after initial definition*
