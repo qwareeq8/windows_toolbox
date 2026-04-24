@@ -126,7 +126,7 @@ class VireloBridge(QObject):
         """Reset all settings to defaults. Returns new settings as structured payload."""
         try:
             new_settings = self._state.reset_to_defaults()
-            self.settings_changed.emit(json.dumps({"ok": True, "data": new_settings}))
+            self.settings_changed.emit(self._state.get_json())
             # Apply all business logic side effects
             if self._main_window:
                 self._main_window._update_snap_enabled_state()
