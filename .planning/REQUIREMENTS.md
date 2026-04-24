@@ -81,7 +81,7 @@ Requirements for the hardening and cleanup milestone. Each maps to roadmap phase
 - [x] **SNAP-02**: Hotkey detection separated from window movement logic
 - [x] **SNAP-03**: Virelo's own window excluded from snapping
 - [x] **SNAP-04**: Restore correctly handles previously-maximized windows
-- [ ] **SNAP-05**: Geometry calculations have unit tests covering multi-monitor scenarios
+- [x] **SNAP-05**: Geometry calculations have unit tests covering multi-monitor scenarios
 
 ### Explorer
 
@@ -190,7 +190,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SNAP-02 | Phase 4 | Complete (04-01) |
 | SNAP-03 | Phase 4 | Complete (04-01) |
 | SNAP-04 | Phase 4 | Complete (04-01) |
-| SNAP-05 | Phase 4 | Pending |
+| SNAP-05 | Phase 4 | Complete (04-03) |
 | EXPL-01 | Phase 4 | Pending |
 | EXPL-02 | Phase 4 | Pending |
 | EXPL-03 | Phase 4 | Pending |
