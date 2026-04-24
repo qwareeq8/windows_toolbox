@@ -875,5 +875,4 @@ def autosize_tab(
                 pass
 
 
-
 # canonicalize_path is imported from virelo.platform.paths (consolidated duplicate)

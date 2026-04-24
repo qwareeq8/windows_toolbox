@@ -3,14 +3,14 @@
 import re
 from pathlib import Path
 
-# Parse APP_VERSION via regex -- do NOT import app_config directly.
-# Importing app_config in spec context may trigger PySide6 import chain.
-_cfg = Path("app_config.py").read_text()
+# Parse APP_VERSION via regex -- do NOT import virelo modules directly.
+# Importing virelo in spec context may trigger PySide6 import chain.
+_cfg = Path("virelo/app/config.py").read_text()
 _match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', _cfg)
 APP_VERSION = _match.group(1) if _match else "0.0.0"
 
 a = Analysis(
-    ['main.py'],
+    ["main.py"],
     pathex=[],
     binaries=[],
     datas=[
@@ -18,8 +18,33 @@ a = Analysis(
         ("frontend/dist", "frontend/dist"),
     ],
     hiddenimports=[
-        'bridge', 'webview', 'settings_state', 'snap_service',
-        'PySide6.QtWebEngineWidgets', 'PySide6.QtWebEngineCore', 'PySide6.QtWebChannel',
+        "virelo",
+        "virelo.app",
+        "virelo.app.window",
+        "virelo.app.config",
+        "virelo.app.webview",
+        "virelo.app.__main__",
+        "virelo.bridge",
+        "virelo.bridge.bridge",
+        "virelo.bridge.capture_guard",
+        "virelo.services",
+        "virelo.services.snap",
+        "virelo.platform.theme",
+        "virelo.platform.startup",
+        "virelo.services.explorer_columns",
+        "virelo.settings",
+        "virelo.settings.persistence",
+        "virelo.settings.state",
+        "virelo.workers",
+        "virelo.workers.key_capture",
+        "virelo.workers.explorer",
+        "virelo.platform",
+        "virelo.platform.win32_helpers",
+        "virelo.platform.resources",
+        "virelo.platform.paths",
+        "PySide6.QtWebEngineWidgets",
+        "PySide6.QtWebEngineCore",
+        "PySide6.QtWebChannel",
     ],
     hookspath=[],
     hooksconfig={},
@@ -35,7 +60,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Virelo',
+    name="Virelo",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -46,7 +71,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['icon.ico'],
+    icon=["icon.ico"],
 )
 coll = COLLECT(
     exe,
@@ -55,5 +80,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='Virelo',
+    name="Virelo",
 )

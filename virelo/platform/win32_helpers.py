@@ -331,13 +331,9 @@ def _find_best_folder_listview(top_hwnd: int) -> int | None:
     defview = _find_descendant_by_class(top_hwnd, ("SHELLDLL_DefView",), max_depth=12)
     candidates = []
     if defview:
-        candidates = list(
-            _collect_descendants_by_class(defview, ("SysListView32",), max_depth=6)
-        )
+        candidates = list(_collect_descendants_by_class(defview, ("SysListView32",), max_depth=6))
     if not candidates:
-        candidates = list(
-            _collect_descendants_by_class(top_hwnd, ("SysListView32",), max_depth=14)
-        )
+        candidates = list(_collect_descendants_by_class(top_hwnd, ("SysListView32",), max_depth=14))
     if not candidates:
         return None
 
