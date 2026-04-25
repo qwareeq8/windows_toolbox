@@ -144,7 +144,6 @@ function Footer({ unsaved, onSave, onDiscard, onReset, onTestSnap, statusMsg }) 
   );
 }
 
-// Map Python bridge settings keys to React state keys
 export function bridgeToState(settings) {
   return {
     snapEnabled: settings.enable_snap ?? true,
@@ -157,10 +156,13 @@ export function bridgeToState(settings) {
     gameMode: settings.game_mode_enabled ?? true,
     autoSize: settings.ex_auto_size ?? true,
     launchLogin: settings.run_at_startup ?? false,
+    accent: settings.accent || 'slate',
+    density: settings.density || 'cozy',
+    minimizeToTray: settings.minimize_to_tray ?? true,
+    themeMode: settings.theme || 'system',
   };
 }
 
-// Map React state keys back to Python bridge settings keys
 export function stateToBridge(state) {
   return JSON.stringify({
     enable_snap: state.snapEnabled,
@@ -173,6 +175,10 @@ export function stateToBridge(state) {
     game_mode_enabled: state.gameMode,
     ex_auto_size: state.autoSize,
     run_at_startup: state.launchLogin,
+    accent: state.accent,
+    density: state.density,
+    minimize_to_tray: state.minimizeToTray,
+    theme: state.themeMode,
   });
 }
 
@@ -186,6 +192,7 @@ export default function VireloApp({ bridge }) {
     pressCount: 3, interval: 1050, width: 76, height: 76,
     gameMode: true, autoSize: true,
     launchLogin: true,
+    accent: 'slate', density: 'cozy', minimizeToTray: true, themeMode: 'system',
   });
   const [unsaved, setUnsaved] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState('');
@@ -203,15 +210,17 @@ export default function VireloApp({ bridge }) {
       }
     });
 
-    // Subscribe to external settings changes (e.g., from tray menu)
     bridge.settings_changed.connect((json) => {
       try {
         const settings = JSON.parse(json);
         setState(bridgeToState(settings));
-        setUnsaved(false);
       } catch (e) {
         console.error('[app] Failed to parse settings_changed:', e);
       }
+    });
+
+    bridge.dirty_changed.connect((isDirty) => {
+      setUnsaved(isDirty);
     });
 
     // Subscribe to snap status messages
@@ -229,11 +238,9 @@ export default function VireloApp({ bridge }) {
   const set = (p) => {
     setState((s) => {
       const next = { ...s, ...p };
-      // Send partial update to Python draft model
       bridge.save_settings(stateToBridge(next), () => {});
       return next;
     });
-    setUnsaved(true);
   };
   const app = { ...state, set };
 
@@ -241,8 +248,7 @@ export default function VireloApp({ bridge }) {
     bridge.commit_draft((result) => {
       try {
         const r = JSON.parse(result);
-        if (r.ok) setUnsaved(false);
-        else console.error('[app] commit_draft failed:', r.error);
+        if (!r.ok) console.error('[app] commit_draft failed:', r.error);
       } catch (e) {
         console.error('[app] Failed to parse commit_draft result:', e);
       }
@@ -252,8 +258,7 @@ export default function VireloApp({ bridge }) {
   const handleDiscard = () => {
     bridge.discard_draft((result) => {
       try {
-        const r = JSON.parse(result);
-        if (r.ok) setUnsaved(false);
+        JSON.parse(result);
       } catch (e) {
         console.error('[app] Failed to parse discard_draft result:', e);
       }
@@ -266,7 +271,6 @@ export default function VireloApp({ bridge }) {
         const r = JSON.parse(json);
         if (r.ok && r.data) {
           setState(bridgeToState(r.data));
-          setUnsaved(false);
         }
       } catch (e) {
         console.error('[app] Failed to parse reset_defaults result:', e);
