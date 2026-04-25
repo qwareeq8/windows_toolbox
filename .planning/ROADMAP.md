@@ -75,7 +75,7 @@ Plans:
   5. Stale class names (ShiftSnapRestore, HotkeyListener) are renamed to reflect that keys are now configurable (SnapRestoreController, MultiPressHotkeyListener)
 **Plans:** 4 plans
 Plans:
-- [ ] 07-01-PLAN.md -- Commit source assets (icon.ico, branding/*, frontend/index.html) and expand clean script
+- [x] 07-01-PLAN.md -- Commit source assets (icon.ico, branding/*, frontend/index.html) and expand clean script
 - [ ] 07-02-PLAN.md -- Fix CI stale-name false positive, add version-check job, add platform guard for Win32 test
 - [ ] 07-03-PLAN.md -- Sync frontend/package.json version, fix README Python version, update installer URL
 - [ ] 07-04-PLAN.md -- Rename HotkeyListener and ShiftSnapRestore throughout codebase
@@ -106,5 +106,5 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 4. Snap and Explorer Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
 | 5. Bridge and Settings Correctness | v1.1 | 3/3 | Complete | 2026-04-25 |
 | 6. UI Action Placement | v1.1 | 3/3 | Complete | 2026-04-25 |
-| 7. CI and Repo Hygiene | v1.1 | 0/4 | Not started | - |
+| 7. CI and Repo Hygiene | v1.1 | 1/4 | In progress | - |
 | 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |

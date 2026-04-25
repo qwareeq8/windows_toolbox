@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 7 of 8 (CI and Repo Hygiene)
-Plan: 0 of 4 complete
-Status: Ready to execute
-Last activity: 2026-04-24 -- Phase 7 planned (4 plans, 2 waves)
+Plan: 1 of 4 complete
+Status: Executing
+Last activity: 2026-04-25 -- Completed 07-01 (commit source assets and expand clean script)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [░░░░░░░░░░] 0%
 | 05 | 01 | 4min | 2 | 6 |
 | 05 | 02 | 5min | 2 | 2 |
 | 05 | 03 | 3min | 2 | 4 |
+| 07 | 01 | 1min | 2 | 8 |
 
 *Updated after each plan completion*
 
@@ -69,6 +70,9 @@ Recent decisions affecting current work:
 - [05-03]: setUnsaved driven entirely by dirty_changed signal -- zero manual calls remain
 - [05-03]: GeneralPage uses useTokens() instead of useTheme() -- tweaks/setTweaks no longer needed
 - [05-03]: Theme Segmented tracks app.themeMode (user choice), not tweaks.theme (effective)
+- [07-01]: icon.ico, branding/*, frontend/index.html committed as source assets (not generated artifacts) -- required for PyInstaller and Inno Setup
+- [07-01]: __pycache__ removed from flat targets list in clean.ps1; replaced with recursive Get-ChildItem pass to catch all subdirectory caches
+- [07-01]: installer\dist added to flat targets list in clean.ps1
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ Items carried from v1.0:
 
 ## Session Continuity
 
-Last session: 2026-04-24
-Stopped at: Phase 7 planned (4 plans, 2 waves)
-Resume file: .planning/phases/07-ci-and-repo-hygiene/07-01-PLAN.md
+Last session: 2026-04-25
+Stopped at: Completed 07-01-PLAN.md
+Resume file: .planning/phases/07-ci-and-repo-hygiene/07-02-PLAN.md
