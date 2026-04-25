@@ -25,7 +25,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 5: Bridge and Settings Correctness** - Python-owned dirty state, strict booleans, key capture via draft, theme coherence, and UI preference persistence -- completed 2026-04-25
 - [x] **Phase 6: UI Action Placement** - Relocate controls to their correct pages, wire dead buttons, key capture UX, and command palette truthfulness -- completed 2026-04-25
-- [ ] **Phase 7: CI and Repo Hygiene** - Commit required assets, fix CI false positives and platform issues, sync versions, rename stale classes
+- [x] **Phase 7: CI and Repo Hygiene** - Commit required assets, fix CI false positives and platform issues, sync versions, rename stale classes (completed 2026-04-25)
 - [ ] **Phase 8: Window Chrome and Release** - Frameless window dragging, signed hit testing, smoke test, release verification, public documentation
 
 ## Phase Details
@@ -73,12 +73,12 @@ Plans:
   3. CI stale-name check passes without false positives on its own workflow file or test docstrings, and unit tests pass on the CI platform
   4. Frontend package.json version, config.py APP_VERSION, installer support URL, and README Python version requirement are all consistent and from a single source of truth
   5. Stale class names (ShiftSnapRestore, HotkeyListener) are renamed to reflect that keys are now configurable (SnapRestoreController, MultiPressHotkeyListener)
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 07-01-PLAN.md -- Commit source assets (icon.ico, branding/*, frontend/index.html) and expand clean script
 - [x] 07-02-PLAN.md -- Fix CI stale-name false positive, add version-check job, add platform guard for Win32 test
 - [x] 07-03-PLAN.md -- Sync frontend/package.json version, fix README Python version, update installer URL
-- [ ] 07-04-PLAN.md -- Rename HotkeyListener and ShiftSnapRestore throughout codebase
+- [x] 07-04-PLAN.md -- Rename HotkeyListener and ShiftSnapRestore throughout codebase
 
 ### Phase 8: Window Chrome and Release
 **Goal**: The application window behaves correctly on all monitor configurations and the release pipeline produces a verified, documented artifact
@@ -106,5 +106,5 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 4. Snap and Explorer Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
 | 5. Bridge and Settings Correctness | v1.1 | 3/3 | Complete | 2026-04-25 |
 | 6. UI Action Placement | v1.1 | 3/3 | Complete | 2026-04-25 |
-| 7. CI and Repo Hygiene | v1.1 | 3/4 | In progress | - |
+| 7. CI and Repo Hygiene | v1.1 | 4/4 | Complete   | 2026-04-25 |
 | 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |

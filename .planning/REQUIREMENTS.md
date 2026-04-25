@@ -35,7 +35,7 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 - [x] **CI-05**: Frontend package.json version is synchronized with APP_VERSION from config.py
 - [x] **CI-06**: README states correct Python version requirement matching pyproject.toml (3.12+)
 - [x] **CI-07**: Installer support URL and config.py support URL use the same source of truth
-- [ ] **CI-08**: Stale class names renamed to reflect configurable keys (ShiftSnapRestore -> SnapRestoreController, HotkeyListener -> MultiPressHotkeyListener)
+- [x] **CI-08**: Stale class names renamed to reflect configurable keys (ShiftSnapRestore -> SnapRestoreController, HotkeyListener -> MultiPressHotkeyListener)
 
 ### Window Chrome and Release
 
@@ -98,7 +98,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CI-05 | Phase 7 | Complete (07-03) |
 | CI-06 | Phase 7 | Complete (07-03) |
 | CI-07 | Phase 7 | Complete (07-03) |
-| CI-08 | Phase 7 | Pending |
+| CI-08 | Phase 7 | Complete |
 | CHRM-01 | Phase 8 | Pending |
 | CHRM-02 | Phase 8 | Pending |
 | CHRM-03 | Phase 8 | Pending |
