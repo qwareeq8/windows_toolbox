@@ -1,7 +1,7 @@
-"""Snap service, HotkeyListener, and ShiftSnapRestore engine.
+"""Snap service, MultiPressHotkeyListener, and SnapRestoreController engine.
 
-HotkeyListener detects multi-press keyboard patterns and emits a trigger signal.
-ShiftSnapRestore performs window snap and restore operations.
+MultiPressHotkeyListener detects multi-press keyboard patterns and emits a trigger signal.
+SnapRestoreController performs window snap and restore operations.
 SnapService wraps both so bridge.py can trigger snap actions without depending
 on class internals.
 """
@@ -46,7 +46,7 @@ def calculate_snap_position(
     return (x, y, w, h)
 
 
-class HotkeyListener(QtCore.QObject):
+class MultiPressHotkeyListener(QtCore.QObject):
     """Detects multi-press keyboard patterns and emits trigger signal."""
 
     triggered = QtCore.Signal(bool)
@@ -131,7 +131,7 @@ class HotkeyListener(QtCore.QObject):
 # ------------------------------------------------------------------------------
 
 
-class ShiftSnapRestore(QtCore.QObject):
+class SnapRestoreController(QtCore.QObject):
     """Performs window snap and restore operations."""
 
     blocked = QtCore.Signal(str)
@@ -205,7 +205,7 @@ class ShiftSnapRestore(QtCore.QObject):
             else:
                 self._snap(hwnd)
         except Exception as e:
-            LOG.exception("ShiftSnapRestore.perform failed.", exc_info=e)
+            LOG.exception("SnapRestoreController.perform failed.", exc_info=e)
 
     def _snap(self, hwnd: int):
         from PySide6 import QtWidgets
@@ -326,16 +326,16 @@ class SnapService:
     """Narrow API surface for snap/restore actions."""
 
     def __init__(self, shift_mgr):
-        """Accept a ShiftSnapRestore instance (or None during early init)."""
+        """Accept a SnapRestoreController instance (or None during early init)."""
         self._mgr = shift_mgr
         self._listener = None
 
     def set_manager(self, mgr):
-        """Set or replace the ShiftSnapRestore instance."""
+        """Set or replace the SnapRestoreController instance."""
         self._mgr = mgr
 
     def set_listener(self, listener):
-        """Set or replace the HotkeyListener instance."""
+        """Set or replace the MultiPressHotkeyListener instance."""
         self._listener = listener
 
     def test_snap(self) -> dict:
