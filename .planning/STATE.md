@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 8 of 8 (Window Chrome and Release)
-Plan: 0 of 0 complete
-Status: Not started
-Last activity: 2026-04-25 -- Phase 7 complete (CI and Repo Hygiene)
+Plan: 0 of 3 complete
+Status: Ready to execute
+Last activity: 2026-04-24 -- Phase 8 planned (3 plans in 1 wave)
 
 Progress: [░░░░░░░░░░] 0%
 
