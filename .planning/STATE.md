@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
-**Current focus:** Phase 7 -- CI and Repo Hygiene
+**Current focus:** Phase 8 -- Window Chrome and Release
 
 ## Current Position
 
 Milestone: v1.1 -- Polish and Correctness
-Phase: 7 of 8 (CI and Repo Hygiene)
-Plan: 4 of 4 complete
-Status: Ready to execute
-Last activity: 2026-04-25
+Phase: 8 of 8 (Window Chrome and Release)
+Plan: 0 of 0 complete
+Status: Not started
+Last activity: 2026-04-25 -- Phase 7 complete (CI and Repo Hygiene)
 
-Progress: [███░░░░░░░] 75%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -103,6 +103,6 @@ Items carried from v1.0:
 
 ## Session Continuity
 
-Last session: 2026-04-25T01:56:28.284Z
-Stopped at: Completed 07-04-PLAN.md
-Resume file: None
+Last session: 2026-04-25
+Stopped at: Phase 7 complete — verified 5/5 must-haves
+Resume file: .planning/phases/07-ci-and-repo-hygiene/07-VERIFICATION.md
