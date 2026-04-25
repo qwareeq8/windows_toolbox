@@ -42,8 +42,8 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 - [x] **CHRM-01**: User can drag the frameless window from non-interactive title bar areas via Python-side event filter
 - [x] **CHRM-02**: User can resize the window correctly on monitors with negative screen coordinates (signed 16-bit lParam decoding)
 - [x] **CHRM-03**: Developer builds without UPX compression until release pipeline is verified stable
-- [ ] **CHRM-04**: Developer can run a non-interactive smoke test (--smoke-test) that verifies resource paths, frontend dist, QWebEngine, settings, and bridge init
-- [ ] **CHRM-05**: Developer can run release verification that checks version consistency, asset existence, and built content correctness
+- [x] **CHRM-04**: Developer can run a non-interactive smoke test (--smoke-test) that verifies resource paths, frontend dist, QWebEngine, settings, and bridge init
+- [x] **CHRM-05**: Developer can run release verification that checks version consistency, asset existence, and built content correctness
 - [ ] **CHRM-06**: .planning/ is gitignored and not published; public docs exist in README.md and docs/
 - [ ] **CHRM-07**: Public documentation covers build instructions, troubleshooting, and release checklist with correct product name and accurate descriptions
 
@@ -102,8 +102,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHRM-01 | Phase 8 | Complete (08-01) |
 | CHRM-02 | Phase 8 | Complete (08-01) |
 | CHRM-03 | Phase 8 | Complete (08-01) |
-| CHRM-04 | Phase 8 | Pending |
-| CHRM-05 | Phase 8 | Pending |
+| CHRM-04 | Phase 8 | Complete (08-02) |
+| CHRM-05 | Phase 8 | Complete (08-02) |
 | CHRM-06 | Phase 8 | Pending |
 | CHRM-07 | Phase 8 | Pending |
 

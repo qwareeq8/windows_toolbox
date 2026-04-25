@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
 status: executing
-stopped_at: Completed 07-04-PLAN.md
-last_updated: "2026-04-25T01:56:28.286Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-04-25T02:52:54Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 8 of 8 (Window Chrome and Release)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Executing
-Last activity: 2026-04-25 -- Completed 08-01 (window chrome fixes)
+Last activity: 2026-04-25 -- Completed 08-02 (smoke test and release verification)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████░░░░] 67%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [███░░░░░░░] 33%
 
 | 07 | 04 | 5min | 2 | 4 |
 | 08 | 01 | 2min | 3 | 3 |
+| 08 | 02 | 2min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [08-01]: TITLE_BAR_HEIGHT=35 matches frontend TitleBar (34px+1px border)
 - [08-01]: CONTROLS_WIDTH=60 excludes two 28px buttons plus safety margin from drag zone
 - [08-01]: pos.x() >= BORDER condition ensures left resize border takes priority over drag
+- [08-02]: --smoke-test parsed before admin elevation to avoid UAC loop (Pitfall 3)
+- [08-02]: argparse add_help=False and parse_known_args to avoid interfering with Qt arguments
+- [08-02]: All 4 new verify-release checks use PowerShell cmdlets (no $LASTEXITCODE concern)
 
 ### Pending Todos
 
@@ -107,5 +111,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-25
-Stopped at: Completed 08-01-PLAN.md
-Resume file: .planning/phases/08-window-chrome-and-release/08-02-PLAN.md
+Stopped at: Completed 08-02-PLAN.md
+Resume file: .planning/phases/08-window-chrome-and-release/08-03-PLAN.md
