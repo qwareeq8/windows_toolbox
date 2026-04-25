@@ -9,13 +9,13 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 
 ### UI Action Placement
 
-- [ ] **UI-01**: User sees Test snap only on the Window snap page (Target size card header) and in the command palette, not in the global footer
-- [ ] **UI-02**: User can test snap with current visible draft values without saving first
-- [ ] **UI-03**: User sees footer containing only status message, dirty indicator, Discard, and Save -- no Reset defaults button
-- [ ] **UI-04**: User can reset all settings to defaults from General page with a confirmation dialog
-- [ ] **UI-05**: User can rebind snap and restore keys via key capture controls (press key to bind) instead of segmented SHIFT/CTRL/ALT controls
-- [ ] **UI-06**: User sees Shortcuts page with accurate subtitle and no misleading rebind interaction hints
-- [ ] **UI-07**: User sees only real, implemented actions in the command palette
+- [x] **UI-01**: User sees Test snap only on the Window snap page (Target size card header) and in the command palette, not in the global footer -- Phase 6
+- [x] **UI-02**: User can test snap with current visible draft values without saving first -- Phase 6
+- [x] **UI-03**: User sees footer containing only status message, dirty indicator, Discard, and Save -- no Reset defaults button -- Phase 6
+- [x] **UI-04**: User can reset all settings to defaults from General page with a confirmation dialog -- Phase 6
+- [x] **UI-05**: User can rebind snap and restore keys via key capture controls (press key to bind) instead of segmented SHIFT/CTRL/ALT controls -- Phase 6
+- [x] **UI-06**: User sees Shortcuts page with accurate subtitle and no misleading rebind interaction hints -- Phase 6
+- [x] **UI-07**: User sees only real, implemented actions in the command palette -- Phase 6
 
 ### Bridge and Settings
 

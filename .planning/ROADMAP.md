@@ -24,7 +24,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 **Milestone Goal:** Make every visible UI control contextual, real, and backed by the same Python state model -- plus fix CI, repo hygiene, and window chrome.
 
 - [x] **Phase 5: Bridge and Settings Correctness** - Python-owned dirty state, strict booleans, key capture via draft, theme coherence, and UI preference persistence -- completed 2026-04-25
-- [ ] **Phase 6: UI Action Placement** - Relocate controls to their correct pages, wire dead buttons, key capture UX, and command palette truthfulness
+- [x] **Phase 6: UI Action Placement** - Relocate controls to their correct pages, wire dead buttons, key capture UX, and command palette truthfulness -- completed 2026-04-25
 - [ ] **Phase 7: CI and Repo Hygiene** - Commit required assets, fix CI false positives and platform issues, sync versions, rename stale classes
 - [ ] **Phase 8: Window Chrome and Release** - Frameless window dragging, signed hit testing, smoke test, release verification, public documentation
 
@@ -58,9 +58,9 @@ Plans:
   5. User sees only real, implemented actions in the command palette and accurate descriptions on the Shortcuts page
 **Plans:** 3 plans
 Plans:
-- [ ] 06-01-PLAN.md -- Footer cleanup and Test Snap relocation to Target Size card header
-- [ ] 06-02-PLAN.md -- Key capture controls and Reset confirmation dialog
-- [ ] 06-03-PLAN.md -- Command palette truthfulness and Shortcuts page accuracy
+- [x] 06-01-PLAN.md -- Footer cleanup and Test Snap relocation to Target Size card header
+- [x] 06-02-PLAN.md -- Key capture controls and Reset confirmation dialog
+- [x] 06-03-PLAN.md -- Command palette truthfulness and Shortcuts page accuracy
 **UI hint**: yes
 
 ### Phase 7: CI and Repo Hygiene
@@ -100,6 +100,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Structure and Quality | v1.0 | 5/5 | Complete | 2026-04-24 |
 | 4. Snap and Explorer Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
 | 5. Bridge and Settings Correctness | v1.1 | 3/3 | Complete | 2026-04-25 |
-| 6. UI Action Placement | v1.1 | 0/3 | Not started | - |
+| 6. UI Action Placement | v1.1 | 3/3 | Complete | 2026-04-25 |
 | 7. CI and Repo Hygiene | v1.1 | 0/0 | Not started | - |
 | 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |
