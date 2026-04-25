@@ -1,13 +1,12 @@
 // Command palette (Ctrl/Cmd+K) for Virelo.
 
 import React from 'react';
-import { useTokens, useTheme } from './theme.jsx';
+import { useTokens } from './theme.jsx';
 import { Kbd } from './primitives.jsx';
 import { Icon } from './icons.jsx';
 
-function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave, onReset }) {
+function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
   const t = useTokens();
-  const { tweaks, setTweaks } = useTheme();
   const [q, setQ] = React.useState('');
   const [idx, setIdx] = React.useState(0);
   const inputRef = React.useRef(null);
@@ -24,16 +23,17 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave, onRese
     { grp: 'Navigate', label: 'Go to About',             run: () => setNav('about'),    icon: 'about' },
     { grp: 'Actions',  label: 'Test snap',               run: () => onTestSnap?.(),     icon: 'play', kbd: '⏎' },
     { grp: 'Actions',  label: 'Save changes',            run: () => onSave?.(),         icon: 'check' },
-    { grp: 'Actions',  label: 'Reset to defaults',       run: () => onReset?.(),        icon: 'reset' },
     { grp: 'Actions',  label: app.snapEnabled ? 'Disable snap' : 'Enable snap', run: () => app.set({ snapEnabled: !app.snapEnabled }), icon: 'dot' },
     { grp: 'Actions',  label: app.gameMode ? 'Disable game mode' : 'Enable game mode', run: () => app.set({ gameMode: !app.gameMode }), icon: 'dot' },
-    { grp: 'Theme',    label: tweaks.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', run: () => setTweaks({ theme: tweaks.theme === 'dark' ? 'light' : 'dark' }), icon: 'spark' },
-    { grp: 'Theme',    label: 'Accent: Slate',  run: () => setTweaks({ accent: 'slate' }),  icon: 'dot' },
-    { grp: 'Theme',    label: 'Accent: Teal',   run: () => setTweaks({ accent: 'teal' }),   icon: 'dot' },
-    { grp: 'Theme',    label: 'Accent: Blue',   run: () => setTweaks({ accent: 'blue' }),   icon: 'dot' },
-    { grp: 'Theme',    label: 'Accent: Rust',   run: () => setTweaks({ accent: 'rust' }),   icon: 'dot' },
-    { grp: 'Theme',    label: 'Accent: Purple', run: () => setTweaks({ accent: 'purple' }), icon: 'dot' },
-  ], [app, tweaks, setTweaks, setNav, onTestSnap, onSave, onReset]);
+    { grp: 'Theme',    label: 'Theme: System', run: () => app.set({ themeMode: 'system' }), icon: 'spark' },
+    { grp: 'Theme',    label: 'Theme: Light',  run: () => app.set({ themeMode: 'light' }),  icon: 'spark' },
+    { grp: 'Theme',    label: 'Theme: Dark',   run: () => app.set({ themeMode: 'dark' }),   icon: 'spark' },
+    { grp: 'Theme',    label: 'Accent: Slate',  run: () => app.set({ accent: 'slate' }),  icon: 'dot' },
+    { grp: 'Theme',    label: 'Accent: Teal',   run: () => app.set({ accent: 'teal' }),   icon: 'dot' },
+    { grp: 'Theme',    label: 'Accent: Blue',   run: () => app.set({ accent: 'blue' }),   icon: 'dot' },
+    { grp: 'Theme',    label: 'Accent: Rust',   run: () => app.set({ accent: 'rust' }),   icon: 'dot' },
+    { grp: 'Theme',    label: 'Accent: Purple', run: () => app.set({ accent: 'purple' }), icon: 'dot' },
+  ], [app, setNav, onTestSnap, onSave]);
 
   const filtered = q.trim()
     ? commands.filter(c => c.label.toLowerCase().includes(q.toLowerCase()))

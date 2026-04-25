@@ -327,7 +327,7 @@ export default function VireloApp({ bridge }) {
         statusMsg={statusMsg}
       />
       <CommandPalette open={palette} onClose={() => setPalette(false)} app={app} setNav={setNav}
-        onTestSnap={handleTestSnap} onSave={handleSave} onReset={handleReset} />
+        onTestSnap={handleTestSnap} onSave={handleSave} />
     </div>
   );
 }

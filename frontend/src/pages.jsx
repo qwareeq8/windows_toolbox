@@ -198,15 +198,13 @@ function ShortcutsPage({ app }) {
     { label: 'Command palette',    keys: ['Ctrl', 'K'] },
   ];
   return (
-    <Pg title="Shortcuts" subtitle="Global keyboard shortcuts. Click any to rebind.">
+    <Pg title="Shortcuts" subtitle="Global keyboard shortcuts registered by Virelo.">
       <Card padding={false}>
         {items.map((it, i) => (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', padding: `${t.rowPad}px ${t.cardPad}px`,
             borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none',
-            cursor: 'pointer', transition: 'background .1s',
-          }} onMouseEnter={(e) => e.currentTarget.style.background = t.hover}
-             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+          }}>
             <div style={{ flex: 1, fontSize: 13, color: t.text }}>{it.label}</div>
             <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
               {it.keys.map((k, j) => (
