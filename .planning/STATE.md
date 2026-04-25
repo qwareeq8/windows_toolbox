@@ -103,6 +103,6 @@ Items carried from v1.0:
 
 ## Session Continuity
 
-Last session: 2026-04-25
-Stopped at: Phase 7 complete — verified 5/5 must-haves
-Resume file: .planning/phases/07-ci-and-repo-hygiene/07-VERIFICATION.md
+Last session: 2026-04-24
+Stopped at: Phase 8 context gathered
+Resume file: .planning/phases/08-window-chrome-and-release/08-CONTEXT.md
