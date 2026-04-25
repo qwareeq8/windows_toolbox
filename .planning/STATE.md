@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 7 of 8 (CI and Repo Hygiene)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: Executing
-Last activity: 2026-04-25 -- Completed 07-01 (commit source assets and expand clean script)
+Last activity: 2026-04-25 -- Completed 07-02 (fix CI false positives, add version-check job, platform guard)
 
-Progress: [█░░░░░░░░░] 25%
+Progress: [██░░░░░░░░] 50%
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [█░░░░░░░░░] 25%
 | 05 | 02 | 5min | 2 | 2 |
 | 05 | 03 | 3min | 2 | 4 |
 | 07 | 01 | 1min | 2 | 8 |
+| 07 | 02 | 1min | 2 | 3 |
 
 *Updated after each plan completion*
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [07-01]: icon.ico, branding/*, frontend/index.html committed as source assets (not generated artifacts) -- required for PyInstaller and Inno Setup
 - [07-01]: __pycache__ removed from flat targets list in clean.ps1; replaced with recursive Get-ChildItem pass to catch all subdirectory caches
 - [07-01]: installer\dist added to flat targets list in clean.ps1
+- [07-02]: --exclude-dir=.github added to stale-name grep so ci.yml does not self-match its own command string
+- [07-02]: version-check CI job added using grep -oP to extract versions from config.py and package.json; fails on mismatch
+- [07-02]: @pytest.mark.skipif(sys.platform != "win32") added to test_restore_maximized_window to prevent ctypes.wintypes ImportError on Linux CI
 
 ### Pending Todos
 
@@ -94,5 +98,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-25
-Stopped at: Completed 07-01-PLAN.md
-Resume file: .planning/phases/07-ci-and-repo-hygiene/07-02-PLAN.md
+Stopped at: Completed 07-02-PLAN.md
+Resume file: .planning/phases/07-ci-and-repo-hygiene/07-03-PLAN.md

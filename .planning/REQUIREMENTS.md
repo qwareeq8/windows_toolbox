@@ -30,8 +30,8 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 
 - [x] **CI-01**: Developer can clone the repo and build without missing assets (icon.ico, branding/*, frontend/index.html committed)
 - [x] **CI-02**: Developer can run clean script to remove all generated artifacts recursively (__pycache__, *.pyc, .pytest_cache, .ruff_cache, frontend/dist, dist, build, installer/dist)
-- [ ] **CI-03**: CI stale-name check passes without false positives on its own workflow file or test docstrings
-- [ ] **CI-04**: CI unit tests pass (either on windows-latest or with platform-guarded Win32 imports on Ubuntu)
+- [x] **CI-03**: CI stale-name check passes without false positives on its own workflow file or test docstrings
+- [x] **CI-04**: CI unit tests pass (either on windows-latest or with platform-guarded Win32 imports on Ubuntu)
 - [ ] **CI-05**: Frontend package.json version is synchronized with APP_VERSION from config.py
 - [ ] **CI-06**: README states correct Python version requirement matching pyproject.toml (3.12+)
 - [ ] **CI-07**: Installer support URL and config.py support URL use the same source of truth
@@ -93,8 +93,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UI-07 | Phase 6 | Pending |
 | CI-01 | Phase 7 | Complete (07-01) |
 | CI-02 | Phase 7 | Complete (07-01) |
-| CI-03 | Phase 7 | Pending |
-| CI-04 | Phase 7 | Pending |
+| CI-03 | Phase 7 | Complete (07-02) |
+| CI-04 | Phase 7 | Complete (07-02) |
 | CI-05 | Phase 7 | Pending |
 | CI-06 | Phase 7 | Pending |
 | CI-07 | Phase 7 | Pending |
