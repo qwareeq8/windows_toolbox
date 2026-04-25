@@ -9,33 +9,37 @@ import { getBridge } from './bridge.js';
  * This avoids the React hooks violation of calling useState after a conditional return.
  * All hooks in this component are called unconditionally.
  */
-function AppWithBridge({ bridge, initialTheme }) {
+function AppWithBridge({ bridge, initialTheme, initialAccent, initialDensity }) {
   const [tweaks, setTweaks] = React.useState({
     theme: initialTheme,
-    accent: 'slate',
-    density: 'cozy',
+    accent: initialAccent || 'slate',
+    density: initialDensity || 'cozy',
     radius: 6,
     sidebarMode: 'full',
   });
 
-  // Subscribe to Python theme changes (system theme polling)
   React.useEffect(() => {
     const handler = (theme) => {
       setTweaks((prev) => ({ ...prev, theme }));
     };
     bridge.theme_applied.connect(handler);
-    // QWebChannel signals don't have disconnect in JS — no cleanup needed
+
+    bridge.settings_changed.connect((json) => {
+      try {
+        const settings = JSON.parse(json);
+        setTweaks((prev) => ({
+          ...prev,
+          accent: settings.accent || prev.accent,
+          density: settings.density || prev.density,
+        }));
+      } catch (e) {
+        console.error('[main] Failed to parse settings_changed for tweaks:', e);
+      }
+    });
   }, [bridge]);
 
   const handleSetTweaks = (updates) => {
-    setTweaks((prev) => {
-      const next = { ...prev, ...updates };
-      // If theme changed, notify Python
-      if (updates.theme && updates.theme !== prev.theme) {
-        bridge.apply_theme(updates.theme, () => {});
-      }
-      return next;
-    });
+    setTweaks((prev) => ({ ...prev, ...updates }));
   };
 
   return (
@@ -52,22 +56,27 @@ function AppWithBridge({ bridge, initialTheme }) {
  */
 function Root() {
   const [bridgeState, setBridgeState] = React.useState(null);
-  // bridgeState is null until ready, then { bridge, initialTheme }
 
   React.useEffect(() => {
     getBridge().then((b) => {
-      b.get_theme_mode((result) => {
-        try {
-          const r = JSON.parse(result);
-          const mode = r.ok && r.data ? r.data : 'dark';
-          setBridgeState({
-            bridge: b,
-            initialTheme: mode === 'light' ? 'light' : 'dark',
-          });
-        } catch (e) {
-          console.error('[main] Failed to parse get_theme_mode result:', e);
-          setBridgeState({ bridge: b, initialTheme: 'dark' });
-        }
+      b.get_theme_mode((themeResult) => {
+        b.get_settings((settingsResult) => {
+          try {
+            const tr = JSON.parse(themeResult);
+            const sr = JSON.parse(settingsResult);
+            const themeData = tr.ok && tr.data ? tr.data : { mode: 'system', effective: 'dark' };
+            const settingsData = sr.ok && sr.data ? sr.data : {};
+            setBridgeState({
+              bridge: b,
+              initialTheme: themeData.effective || 'dark',
+              initialAccent: settingsData.accent || 'slate',
+              initialDensity: settingsData.density || 'cozy',
+            });
+          } catch (e) {
+            console.error('[main] Failed to parse initial state:', e);
+            setBridgeState({ bridge: b, initialTheme: 'dark', initialAccent: 'slate', initialDensity: 'cozy' });
+          }
+        });
       });
     });
   }, []);
@@ -88,6 +97,8 @@ function Root() {
     <AppWithBridge
       bridge={bridgeState.bridge}
       initialTheme={bridgeState.initialTheme}
+      initialAccent={bridgeState.initialAccent}
+      initialDensity={bridgeState.initialDensity}
     />
   );
 }

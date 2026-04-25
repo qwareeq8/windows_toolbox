@@ -158,22 +158,22 @@ function ShortcutsPage({ app }) {
 }
 
 function GeneralPage({ app }) {
-  const { tokens: t, tweaks, setTweaks } = useTheme();
+  const t = useTokens();
   return (
     <Pg title="General" subtitle="Application-wide preferences.">
       <Card title="Appearance">
         <Row label="Theme" description="Light or dark surfaces throughout the app.">
-          <Segmented options={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
-            value={tweaks.theme} onChange={(v) => setTweaks({ theme: v })} />
+          <Segmented options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
+            value={app.themeMode} onChange={(v) => app.set({ themeMode: v })} />
         </Row>
         <Row label="Accent color" description="Used for selection, toggles, and primary actions.">
           <div style={{ display: 'flex', gap: 6 }}>
             {Object.entries(ACCENTS).map(([k, v]) => (
-              <button key={k} onClick={() => setTweaks({ accent: k })}
+              <button key={k} onClick={() => app.set({ accent: k })}
                 style={{
                   width: 22, height: 22, borderRadius: 11,
                   background: t.isDark ? v.dark : v.light,
-                  border: tweaks.accent === k ? `2px solid ${t.text}` : `1px solid ${t.border}`,
+                  border: app.accent === k ? `2px solid ${t.text}` : `1px solid ${t.border}`,
                   cursor: 'pointer', padding: 0,
                 }}/>
             ))}
@@ -181,7 +181,7 @@ function GeneralPage({ app }) {
         </Row>
         <Row label="Density" description="Controls spacing throughout the app." last>
           <Segmented options={[{ value: 'compact', label: 'Compact' }, { value: 'cozy', label: 'Cozy' }, { value: 'comfortable', label: 'Comfortable' }]}
-            value={tweaks.density} onChange={(v) => setTweaks({ density: v })} />
+            value={app.density} onChange={(v) => app.set({ density: v })} />
         </Row>
       </Card>
 

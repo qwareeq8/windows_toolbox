@@ -15,7 +15,7 @@ const MOCK_SETTINGS = {
   snap_key: 'shift', restore_key: 'ctrl', enable_snap: true,
   snap_presses: 3, snap_interval: 1050, width_pct: 76, height_pct: 76,
   game_mode_enabled: true, ex_auto_size: true, run_at_startup: false,
-  theme: 'dark',
+  theme: 'dark', accent: 'slate', density: 'cozy', minimize_to_tray: true,
 };
 
 const MOCK_BRIDGE = {
@@ -27,17 +27,15 @@ const MOCK_BRIDGE = {
   get_snap_enabled: (cb) => cb(JSON.stringify({ ok: true, data: true })),
   test_snap: (cb) => cb(JSON.stringify({ ok: true })),
   capture_key: (target, cb) => cb(JSON.stringify({ ok: true })),
-  apply_theme: (mode, cb) => cb(JSON.stringify({ ok: true })),
-  toggle_run_at_startup: (enabled, cb) => cb(JSON.stringify({ ok: true, data: { enabled } })),
   reset_defaults: (cb) => cb(JSON.stringify({ ok: true, data: MOCK_SETTINGS })),
-  get_theme_mode: (cb) => cb(JSON.stringify({ ok: true, data: 'dark' })),
+  get_theme_mode: (cb) => cb(JSON.stringify({ ok: true, data: { mode: 'dark', effective: 'dark' } })),
   get_launch_at_login: (cb) => cb(JSON.stringify({ ok: true, data: false })),
   setWindowCommand: (cmd, cb) => cb(JSON.stringify({ ok: true })),
-  // Signals (no-op in mock)
   settings_changed: { connect: () => {} },
   theme_applied: { connect: () => {} },
   snap_status: { connect: () => {} },
   capture_status: { connect: () => {} },
+  dirty_changed: { connect: () => {} },
 };
 
 function _initBridge() {
