@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-04-25T00:25:35Z"
-last_activity: 2026-04-25 -- Completed Plan 01 (settings model foundation)
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-04-25T01:00:00Z"
+last_activity: 2026-04-25 -- Completed Plan 02 (draft/commit rerouting)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 5 of 8 (Bridge and Settings Correctness)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Executing
-Last activity: 2026-04-25 -- Completed Plan 01: settings model foundation (strict bool, new keys, dirty_changed)
+Last activity: 2026-04-25 -- Completed Plan 02: draft/commit rerouting (removed standalone slots, key capture via draft)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████░░░░] 67%
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Progress: [███░░░░░░░] 33%
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 05 | 01 | 4min | 2 | 6 |
+| 05 | 02 | 5min | 2 | 2 |
 
 *Updated after each plan completion*
 
@@ -61,6 +62,9 @@ Recent decisions affecting current work:
 - [05-01]: _strict_bool accepts only True/False/"true"/"false"/1/0 -- prevents bool("false")==True at bridge boundary
 - [05-01]: Accent/density validated via tuple membership with DEFAULTS fallback, not enum class
 - [05-01]: dirty_changed emits on every apply_draft without debounce (lightweight signal)
+- [05-02]: Removed apply_theme and toggle_run_at_startup standalone bridge slots
+- [05-02]: Key capture routes through apply_draft (pending change, not immediate persist)
+- [05-02]: get_theme_mode returns {mode, effective} for frontend disambiguation
 
 ### Pending Todos
 
@@ -83,4 +87,4 @@ Items carried from v1.0:
 
 Last session: 2026-04-25
 Stopped at: Completed 05-01-PLAN.md
-Resume file: .planning/phases/05-bridge-and-settings-correctness/05-02-PLAN.md
+Resume file: .planning/phases/05-bridge-and-settings-correctness/05-03-PLAN.md
