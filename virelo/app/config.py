@@ -26,6 +26,9 @@ DEFAULTS = {
     "game_mode_enabled": True,
     "run_at_startup": False,
     "theme": "system",
+    "accent": "slate",
+    "density": "cozy",
+    "minimize_to_tray": True,
 }
 
 

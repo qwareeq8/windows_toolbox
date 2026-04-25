@@ -4,7 +4,7 @@ from virelo.app.config import APP_NAME, APP_VERSION, DEFAULTS, normalize_snap_pr
 
 
 def test_defaults_has_all_keys():
-    """DEFAULTS should contain all 11 settings keys."""
+    """DEFAULTS should contain all 14 settings keys."""
     expected_keys = {
         "snap_key",
         "restore_key",
@@ -17,6 +17,9 @@ def test_defaults_has_all_keys():
         "game_mode_enabled",
         "run_at_startup",
         "theme",
+        "accent",
+        "density",
+        "minimize_to_tray",
     }
     assert set(DEFAULTS.keys()) == expected_keys
 

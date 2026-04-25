@@ -48,6 +48,12 @@ class Settings:
             self._qs.value("theme", DEFAULTS["theme"], str),
             DEFAULTS["theme"],
         )
+        self.accent = str(self._qs.value("accent", DEFAULTS["accent"], str))
+        self.density = str(self._qs.value("density", DEFAULTS["density"], str))
+        self.minimize_to_tray = _safe_bool(
+            self._qs.value("minimize_to_tray", DEFAULTS["minimize_to_tray"], bool),
+            DEFAULTS["minimize_to_tray"],
+        )
         self._qs.endGroup()
 
     def clear(self):
@@ -69,6 +75,9 @@ class Settings:
         self._qs.setValue("run_at_startup", self.run_at_startup)
         self._qs.setValue("game_mode_enabled", self.game_mode_enabled)
         self._qs.setValue("theme", self.theme)
+        self._qs.setValue("accent", self.accent)
+        self._qs.setValue("density", self.density)
+        self._qs.setValue("minimize_to_tray", self.minimize_to_tray)
         self._qs.endGroup()
 
 

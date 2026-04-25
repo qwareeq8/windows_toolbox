@@ -14,6 +14,34 @@ from virelo.platform.theme import normalize_theme_mode
 from virelo.settings.persistence import Settings
 
 
+_VALID_ACCENTS = ("slate", "teal", "blue", "rust", "purple")
+_VALID_DENSITIES = ("compact", "cozy", "comfortable")
+
+
+def _strict_bool(value):
+    """Parse strict boolean values. Raises ValueError for ambiguous input.
+
+    Accepts: True, False, "true", "false", 1, 0
+    Rejects: "yes", "no", "on", "off", None, non-boolean strings
+
+    This prevents Python's bool("false") == True pitfall at the bridge boundary.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if value in (0, 1):
+            return bool(value)
+        raise ValueError(f"Expected 0 or 1, got {value}")
+    if isinstance(value, str):
+        lower = value.strip().lower()
+        if lower == "true":
+            return True
+        if lower == "false":
+            return False
+        raise ValueError(f"Expected 'true' or 'false', got '{value}'")
+    raise ValueError(f"Cannot convert {type(value).__name__} to bool")
+
+
 class SettingsState:
     """Thin wrapper around Settings that provides JSON-friendly read/write.
 
@@ -29,15 +57,18 @@ class SettingsState:
     KEYS = {
         "snap_key": (str, None),
         "restore_key": (str, None),
-        "enable_snap": (bool, None),
+        "enable_snap": (_strict_bool, None),
         "snap_presses": (int, (1, 10)),
         "snap_interval": (int, (100, 5000)),
         "width_pct": (int, (10, 100)),
         "height_pct": (int, (10, 100)),
-        "ex_auto_size": (bool, None),
-        "game_mode_enabled": (bool, None),
-        "run_at_startup": (bool, None),
+        "ex_auto_size": (_strict_bool, None),
+        "game_mode_enabled": (_strict_bool, None),
+        "run_at_startup": (_strict_bool, None),
         "theme": (str, None),
+        "accent": (str, None),
+        "density": (str, None),
+        "minimize_to_tray": (_strict_bool, None),
     }
 
     def __init__(self, settings: Settings):
@@ -103,6 +134,14 @@ class SettingsState:
                 coerced = normalize_theme_mode(coerced, DEFAULTS["theme"])
             if key == "snap_presses":
                 coerced = normalize_snap_presses(coerced)
+            if key == "accent":
+                coerced = coerced.strip().lower()
+                if coerced not in _VALID_ACCENTS:
+                    coerced = DEFAULTS["accent"]
+            if key == "density":
+                coerced = coerced.strip().lower()
+                if coerced not in _VALID_DENSITIES:
+                    coerced = DEFAULTS["density"]
             validated[key] = coerced
 
         if self._draft is None:
