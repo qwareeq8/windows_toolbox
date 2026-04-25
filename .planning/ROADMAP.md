@@ -90,7 +90,11 @@ Plans:
   3. Developer can run a non-interactive smoke test (--smoke-test) that verifies resource paths, frontend dist, QWebEngine init, settings, and bridge init without manual interaction
   4. Developer can run release verification that checks version consistency, asset existence, and built content correctness -- and .planning/ is gitignored while public docs exist in README.md and docs/
   5. Public documentation covers build instructions, troubleshooting, and release checklist with the correct product name and accurate descriptions
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 08-01-PLAN.md -- Window chrome: HTCAPTION drag zone, signed lParam fix, UPX disabled
+- [ ] 08-02-PLAN.md -- Smoke test (--smoke-test flag) and release verification expansion
+- [ ] 08-03-PLAN.md -- Documentation (docs/BUILD.md, TROUBLESHOOTING.md, RELEASE.md) and .planning/ gitignore
 **UI hint**: yes
 
 ## Progress
@@ -107,4 +111,4 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 5. Bridge and Settings Correctness | v1.1 | 3/3 | Complete | 2026-04-25 |
 | 6. UI Action Placement | v1.1 | 3/3 | Complete | 2026-04-25 |
 | 7. CI and Repo Hygiene | v1.1 | 4/4 | Complete   | 2026-04-25 |
-| 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |
+| 8. Window Chrome and Release | v1.1 | 0/3 | Not started | - |
