@@ -45,3 +45,6 @@ crash.log
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Planning artifacts (internal)
+.planning/
