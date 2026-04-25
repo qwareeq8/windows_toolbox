@@ -58,8 +58,24 @@ jobs:
             --include="*.iss" --include="*.spec" \
             --exclude-dir=node_modules --exclude-dir=.git \
             --exclude-dir=dist --exclude-dir=build \
-            --exclude-dir=.planning; then
+            --exclude-dir=.planning --exclude-dir=.github; then
             echo "ERROR: Found stale 'Windows Toolbox' references"
             exit 1
           fi
           echo "OK: No stale references found"
+
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version consistency (config.py vs package.json)
+        run: |
+          PY_VERSION=$(grep -oP '(?<=APP_VERSION = ")[^"]+' virelo/app/config.py)
+          PKG_VERSION=$(grep -oP '(?<="version": ")[^"]+' frontend/package.json)
+          echo "config.py APP_VERSION:  $PY_VERSION"
+          echo "package.json version:   $PKG_VERSION"
+          if [ "$PY_VERSION" != "$PKG_VERSION" ]; then
+            echo "ERROR: Version mismatch"
+            exit 1
+          fi
+          echo "OK: Versions match ($PY_VERSION)"
