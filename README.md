@@ -20,7 +20,7 @@ Virelo provides two core features:
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.12+
 - Node.js (for frontend build)
 - Inno Setup 6 (only needed for the installer)
 
