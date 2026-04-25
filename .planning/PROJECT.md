@@ -8,7 +8,7 @@ Virelo is a personal Windows desktop utility that snaps the foreground window to
 
 The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
 
-## Current Milestone: v1.1 Polish and Correctness
+## Completed Milestone: v1.1 Polish and Correctness (shipped 2026-04-25)
 
 **Goal:** Make every visible UI control contextual, real, and backed by the same Python state model — plus fix CI, repo hygiene, and window chrome.
 
@@ -51,10 +51,17 @@ The keyboard-triggered window snap must work reliably on any foreground window a
 - ✓ CI passes without false positives (stale-name, platform guards) — Phase 7
 - ✓ Version strings synchronized across config.py, package.json, README, installer — Phase 7
 - ✓ Stale class names renamed (SnapRestoreController, MultiPressHotkeyListener) — Phase 7
+- ✓ Frameless window dragging via HTCAPTION in nativeEvent — Phase 8
+- ✓ Signed 16-bit lParam decoding for multi-monitor resize — Phase 8
+- ✓ Non-interactive smoke test (--smoke-test) verifies subsystem init — Phase 8
+- ✓ Release verification checks version consistency and bundled assets — Phase 8
+- ✓ UPX compression disabled until release pipeline verified stable — Phase 8
+- ✓ Public documentation in docs/ (BUILD, TROUBLESHOOTING, RELEASE) — Phase 8
+- ✓ .planning/ gitignored, not published — Phase 8
 
 ### Active
 
-See `.planning/REQUIREMENTS.md` for v1.1 scoped requirements.
+v1.1 milestone complete. See `.planning/REQUIREMENTS.md` for validated requirements.
 
 ### Future
 
@@ -74,7 +81,7 @@ See `.planning/REQUIREMENTS.md` for v1.1 scoped requirements.
 
 ## Context
 
-Shipped v1.0 with 4,355 LOC Python, 1,482 LOC React/JS, 607 LOC tests. All "Windows Toolbox" naming removed. Codebase organized as a `virelo/` package with 6 subpackages (app, bridge, services, workers, platform, settings). 53 unit tests pass, Ruff linting clean, GitHub Actions CI enforces on every push. Reproducible build pipeline produces installer from clean checkout. WebEngine locked down, bridge uses draft/commit state model, all UI controls wired to Python backend. Snap and Explorer features are isolated services with proper separation of concerns.
+Shipped v1.1 with 88 unit tests passing. v1.0 foundation (4,355 LOC Python, 1,482 LOC React/JS) extended with Python-owned draft/commit settings model, strict boolean parsing, key capture via draft, theme coherence, UI action placement, CI hygiene, frameless window dragging, signed multi-monitor coordinates, non-interactive smoke test, and public documentation. Codebase organized as a `virelo/` package with 6 subpackages (app, bridge, services, workers, platform, settings). Ruff linting clean, GitHub Actions CI enforces on every push. Reproducible build pipeline produces installer from clean checkout. WebEngine locked down, bridge uses draft/commit state model, all UI controls wired to Python backend.
 
 ## Constraints
 
@@ -117,4 +124,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after Phase 7*
+*Last updated: 2026-04-25 after Phase 8 — v1.1 milestone complete*

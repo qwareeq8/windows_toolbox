@@ -26,7 +26,7 @@ Full details: `milestones/v1.0-ROADMAP.md`
 - [x] **Phase 5: Bridge and Settings Correctness** - Python-owned dirty state, strict booleans, key capture via draft, theme coherence, and UI preference persistence -- completed 2026-04-25
 - [x] **Phase 6: UI Action Placement** - Relocate controls to their correct pages, wire dead buttons, key capture UX, and command palette truthfulness -- completed 2026-04-25
 - [x] **Phase 7: CI and Repo Hygiene** - Commit required assets, fix CI false positives and platform issues, sync versions, rename stale classes (completed 2026-04-25)
-- [ ] **Phase 8: Window Chrome and Release** - Frameless window dragging, signed hit testing, smoke test, release verification, public documentation
+- [x] **Phase 8: Window Chrome and Release** - Frameless window dragging, signed hit testing, smoke test, release verification, public documentation (completed 2026-04-25)
 
 ## Phase Details
 
