@@ -40,7 +40,11 @@ Full details: `milestones/v1.0-ROADMAP.md`
   3. User can press a key capture button, press a new key, and see it reflected as a pending (unsaved) draft change with dirty indicator showing
   4. User can select System, Light, or Dark theme and the frontend updates correctly because Python emits both the chosen mode and the resolved effective theme
   5. Every boolean setting round-trips through the bridge without silent coercion (true/false strings, 1/0 integers all parse to strict Python bools)
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 05-01-PLAN.md -- Python settings model foundation (strict bool, new keys, dirty_changed signal)
+- [ ] 05-02-PLAN.md -- Bridge slot cleanup, key capture via draft, side effects expansion
+- [ ] 05-03-PLAN.md -- Frontend dirty state subscription, key mappings, theme/accent/density routing
 
 ### Phase 6: UI Action Placement
 **Goal**: Every visible control lives on the correct page, does what it claims, and nothing fake remains in the interface
@@ -91,7 +95,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 2. Security and Bridge Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
 | 3. Structure and Quality | v1.0 | 5/5 | Complete | 2026-04-24 |
 | 4. Snap and Explorer Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
-| 5. Bridge and Settings Correctness | v1.1 | 0/0 | Not started | - |
+| 5. Bridge and Settings Correctness | v1.1 | 0/3 | Planned | - |
 | 6. UI Action Placement | v1.1 | 0/0 | Not started | - |
 | 7. CI and Repo Hygiene | v1.1 | 0/0 | Not started | - |
 | 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |
