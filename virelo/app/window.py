@@ -28,6 +28,10 @@ LOG = logging.getLogger("Virelo")
 
 APP_TITLE = APP_NAME
 
+# Window chrome constants for WM_NCHITTEST hit-zone classification
+TITLE_BAR_HEIGHT = 35   # Frontend TitleBar: 34px height + 1px borderBottom
+CONTROLS_WIDTH = 60     # Two 28px window control buttons + right padding margin
+
 
 # ------------------------------------------------------------------------------
 # Startup shortcut management
@@ -461,8 +465,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if event_type == b"windows_generic_MSG":
             msg = ctypes.wintypes.MSG.from_address(int(message))
             if msg.message == 0x0084:  # WM_NCHITTEST
-                x = msg.lParam & 0xFFFF
-                y = (msg.lParam >> 16) & 0xFFFF
+                x = ctypes.c_short(msg.lParam & 0xFFFF).value
+                y = ctypes.c_short((msg.lParam >> 16) & 0xFFFF).value
                 # Convert screen coords to window coords
                 pos = self.mapFromGlobal(QtCore.QPoint(x, y))
                 rect = self.rect()
@@ -489,4 +493,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     result = 15  # HTBOTTOM
                 if result:
                     return True, result
+
+                # Title bar drag zone (D-01, D-02, D-03)
+                if (pos.y() < TITLE_BAR_HEIGHT
+                        and pos.x() >= BORDER
+                        and pos.x() < rect.width() - CONTROLS_WIDTH):
+                    return True, 2  # HTCAPTION
+
         return super().nativeEvent(event_type, message)
