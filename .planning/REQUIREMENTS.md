@@ -78,12 +78,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BRDG-01 | Phase 5 | Pending |
+| BRDG-01 | Phase 5 | In progress (05-01: dirty_changed signal declared and emitted) |
 | BRDG-02 | Phase 5 | Pending |
 | BRDG-03 | Phase 5 | Pending |
-| BRDG-04 | Phase 5 | Pending |
+| BRDG-04 | Phase 5 | In progress (05-01: _strict_bool replaces bool in all KEYS) |
 | BRDG-05 | Phase 5 | Pending |
-| BRDG-06 | Phase 5 | Pending |
+| BRDG-06 | Phase 5 | In progress (05-01: accent/density/minimize_to_tray in model) |
 | UI-01 | Phase 6 | Pending |
 | UI-02 | Phase 6 | Pending |
 | UI-03 | Phase 6 | Pending |

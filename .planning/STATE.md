@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
-status: ready_to_execute
-stopped_at: Phase 5 planned (3 plans, 3 waves)
-last_updated: "2026-04-25T00:15:00Z"
-last_activity: 2026-04-24 -- Phase 5 planned (3 plans verified)
+status: executing
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-04-25T00:25:35Z"
+last_activity: 2026-04-25 -- Completed Plan 01 (settings model foundation)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -27,19 +27,23 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 5 of 8 (Bridge and Settings Correctness)
-Plan: 3 plans in 3 waves (verified)
-Status: Ready to execute
-Last activity: 2026-04-24 -- Phase 5 planned: 3 plans, 6 tasks, all 6 requirements covered
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-04-25 -- Completed Plan 01: settings model foundation (strict bool, new keys, dirty_changed)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: --
-- Total execution time: --
+- Total plans completed: 1
+- Average duration: 4min
+- Total execution time: 4min
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 05 | 01 | 4min | 2 | 6 |
 
 *Updated after each plan completion*
 
@@ -54,6 +58,9 @@ Recent decisions affecting current work:
 - [v1.1 roadmap]: Bridge work (Phase 5) before UI work (Phase 6) because UI-02 and UI-05 depend on BRDG-01 and BRDG-03
 - [v1.1 roadmap]: CI-08 (class renames) placed in Phase 7 with other repo hygiene rather than with bridge work
 - [v1.1 roadmap]: Coarse granularity: 4 phases matching 4 requirement categories with dependency-driven ordering
+- [05-01]: _strict_bool accepts only True/False/"true"/"false"/1/0 -- prevents bool("false")==True at bridge boundary
+- [05-01]: Accent/density validated via tuple membership with DEFAULTS fallback, not enum class
+- [05-01]: dirty_changed emits on every apply_draft without debounce (lightweight signal)
 
 ### Pending Todos
 
@@ -74,6 +81,6 @@ Items carried from v1.0:
 
 ## Session Continuity
 
-Last session: 2026-04-24
-Stopped at: Phase 5 planned (3 plans, verified, ready to execute)
-Resume file: .planning/phases/05-bridge-and-settings-correctness/05-01-PLAN.md
+Last session: 2026-04-25
+Stopped at: Completed 05-01-PLAN.md
+Resume file: .planning/phases/05-bridge-and-settings-correctness/05-02-PLAN.md
