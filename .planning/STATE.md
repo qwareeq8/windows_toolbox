@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
 status: executing
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-04-25T01:00:00Z"
-last_activity: 2026-04-25 -- Completed Plan 02 (draft/commit rerouting)
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-04-25T02:00:00Z"
+last_activity: 2026-04-25 -- Completed Plan 03 (frontend dirty state and preference routing)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 5 of 8 (Bridge and Settings Correctness)
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Executing
-Last activity: 2026-04-25 -- Completed Plan 02: draft/commit rerouting (removed standalone slots, key capture via draft)
+Last activity: 2026-04-25 -- Completed Plan 03: frontend dirty state and preference routing
 
-Progress: [██████░░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress: [██████░░░░] 67%
 |-------|------|----------|-------|-------|
 | 05 | 01 | 4min | 2 | 6 |
 | 05 | 02 | 5min | 2 | 2 |
+| 05 | 03 | 3min | 2 | 4 |
 
 *Updated after each plan completion*
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [05-02]: Removed apply_theme and toggle_run_at_startup standalone bridge slots
 - [05-02]: Key capture routes through apply_draft (pending change, not immediate persist)
 - [05-02]: get_theme_mode returns {mode, effective} for frontend disambiguation
+- [05-03]: setUnsaved driven entirely by dirty_changed signal -- zero manual calls remain
+- [05-03]: GeneralPage uses useTokens() instead of useTheme() -- tweaks/setTweaks no longer needed
+- [05-03]: Theme Segmented tracks app.themeMode (user choice), not tweaks.theme (effective)
 
 ### Pending Todos
 
@@ -86,5 +90,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-25
-Stopped at: Completed 05-01-PLAN.md
-Resume file: .planning/phases/05-bridge-and-settings-correctness/05-03-PLAN.md
+Stopped at: Completed 05-03-PLAN.md
+Resume file: None

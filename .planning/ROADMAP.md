@@ -43,8 +43,8 @@ Full details: `milestones/v1.0-ROADMAP.md`
 **Plans:** 3 plans
 Plans:
 - [x] 05-01-PLAN.md -- Python settings model foundation (strict bool, new keys, dirty_changed signal)
-- [ ] 05-02-PLAN.md -- Bridge slot cleanup, key capture via draft, side effects expansion
-- [ ] 05-03-PLAN.md -- Frontend dirty state subscription, key mappings, theme/accent/density routing
+- [x] 05-02-PLAN.md -- Bridge slot cleanup, key capture via draft, side effects expansion
+- [x] 05-03-PLAN.md -- Frontend dirty state subscription, key mappings, theme/accent/density routing
 
 ### Phase 6: UI Action Placement
 **Goal**: Every visible control lives on the correct page, does what it claims, and nothing fake remains in the interface
@@ -95,7 +95,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 2. Security and Bridge Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
 | 3. Structure and Quality | v1.0 | 5/5 | Complete | 2026-04-24 |
 | 4. Snap and Explorer Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
-| 5. Bridge and Settings Correctness | v1.1 | 1/3 | In progress | - |
+| 5. Bridge and Settings Correctness | v1.1 | 3/3 | In progress | - |
 | 6. UI Action Placement | v1.1 | 0/0 | Not started | - |
 | 7. CI and Repo Hygiene | v1.1 | 0/0 | Not started | - |
 | 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |
