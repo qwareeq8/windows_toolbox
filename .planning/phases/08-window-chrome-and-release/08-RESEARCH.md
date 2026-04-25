@@ -467,22 +467,22 @@ if ($staleMatch) {
 | A3 | Smoke test can construct QWebEngine without entering the event loop | Pattern 3 | QWebEngine may require event loop processing to fully initialize; test may need to process events briefly |
 | A4 | --smoke-test should skip admin elevation | Pitfall 3 | If smoke test checks require admin access, skipping elevation would cause false failures |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact CONTROLS_WIDTH value**
+1. **Exact CONTROLS_WIDTH value** — RESOLVED: Using 60px per Claude's discretion, adopted in Plan 08-01 Task 2.
    - What we know: Each button is 28px wide (from app.jsx lines 36-48). Two buttons = 56px.
    - What's unclear: Whether there is padding between the last button and the window edge, or between buttons. The buttons use no explicit gap in the flex container, but the TitleBar has `padding: '0 6px 0 12px'` which adds 6px on the right.
-   - Recommendation: Use 60px as CONTROLS_WIDTH (56px buttons + 4px safety margin). This is generous enough to avoid the pitfall without creating a noticeable dead zone. The exact value is Claude's discretion per CONTEXT.md.
+   - Resolution: Use 60px as CONTROLS_WIDTH (56px buttons + 4px safety margin). This is generous enough to avoid the pitfall without creating a noticeable dead zone.
 
-2. **Smoke test and QWebEngine initialization**
+2. **Smoke test and QWebEngine initialization** — RESOLVED: Construct without event loop, adopted in Plan 08-02 Task 1.
    - What we know: D-07 specifies "QWebEngine can be constructed without errors" as a check.
    - What's unclear: Whether constructing a QWebEngineView without entering the event loop will succeed or throw. VireloWebView constructor (webview.py) does `self.setUrl(url)` which may require event processing.
-   - Recommendation: Construct the QWebEngineView but do not verify URL loading. Checking that the constructor does not throw is sufficient for a smoke test.
+   - Resolution: Construct the QWebEngineView but do not verify URL loading. Checking that the constructor does not throw is sufficient for a smoke test.
 
-3. **Smoke test and admin rights**
+3. **Smoke test and admin rights** — RESOLVED: Skip elevation for smoke test, adopted in Plan 08-02 Task 1.
    - What we know: The app normally requires admin for keyboard hooks and cross-process window manipulation.
    - What's unclear: Whether Settings (QSettings), SettingsState, or VireloBridge initialization require admin rights.
-   - Recommendation: QSettings, SettingsState, and VireloBridge are pure in-process operations that do not require admin. Skip elevation for smoke test.
+   - Resolution: QSettings, SettingsState, and VireloBridge are pure in-process operations that do not require admin. Skip elevation for smoke test.
 
 ## Environment Availability
 
