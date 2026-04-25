@@ -19,12 +19,12 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 
 ### Bridge and Settings
 
-- [ ] **BRDG-01**: User sees accurate dirty/clean state in the footer driven by Python dirty_changed signal, not local React inference
-- [ ] **BRDG-02**: User can toggle Launch at login and have the startup shortcut created or removed on Save, with error reporting on failure
-- [ ] **BRDG-03**: User can capture a new key binding and see it reflected as a dirty draft change before saving
-- [ ] **BRDG-04**: User cannot cause silent boolean coercion bugs through bridge settings (strict parsing of true/false/1/0)
-- [ ] **BRDG-05**: User can select System, Light, or Dark theme with Python sending both theme_mode and effective_theme to the frontend
-- [ ] **BRDG-06**: User's UI preferences (accent, density, radius, sidebar mode, minimize-to-tray) are either persisted through the Python draft model or their controls are removed
+- [x] **BRDG-01**: User sees accurate dirty/clean state in the footer driven by Python dirty_changed signal, not local React inference -- Phase 5
+- [x] **BRDG-02**: User can toggle Launch at login and have the startup shortcut created or removed on Save, with error reporting on failure -- Phase 5
+- [x] **BRDG-03**: User can capture a new key binding and see it reflected as a dirty draft change before saving -- Phase 5
+- [x] **BRDG-04**: User cannot cause silent boolean coercion bugs through bridge settings (strict parsing of true/false/1/0) -- Phase 5
+- [x] **BRDG-05**: User can select System, Light, or Dark theme with Python sending both theme_mode and effective_theme to the frontend -- Phase 5
+- [x] **BRDG-06**: User's UI preferences (accent, density, radius, sidebar mode, minimize-to-tray) are either persisted through the Python draft model or their controls are removed -- Phase 5
 
 ### CI and Repo Hygiene
 

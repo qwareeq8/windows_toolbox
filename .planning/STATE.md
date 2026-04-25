@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-24)
 
 **Core value:** The keyboard-triggered window snap must work reliably on any foreground window across all monitors, without interfering with fullscreen applications.
-**Current focus:** Phase 5 -- Bridge and Settings Correctness
+**Current focus:** Phase 6 -- UI Action Placement
 
 ## Current Position
 
 Milestone: v1.1 -- Polish and Correctness
-Phase: 5 of 8 (Bridge and Settings Correctness)
-Plan: 3 of 3 complete
-Status: Executing
-Last activity: 2026-04-25 -- Completed Plan 03: frontend dirty state and preference routing
+Phase: 6 of 8 (UI Action Placement)
+Plan: 0 of 0 complete
+Status: Not started
+Last activity: 2026-04-25 -- Phase 5 complete, advancing to Phase 6
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
