@@ -46,7 +46,7 @@ def test_normalize_snap_presses_invalid():
 
 
 def test_app_name_is_virelo():
-    """APP_NAME must be 'Virelo' (never 'Windows Toolbox')."""
+    """APP_NAME must be 'Virelo' (not the old product name)."""
     assert APP_NAME == "Virelo"
 
 

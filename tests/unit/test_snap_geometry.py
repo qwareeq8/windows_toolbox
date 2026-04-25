@@ -4,6 +4,9 @@ Tests calculate_snap_position and _rect_matches_monitor without requiring
 Win32 APIs or a running desktop.
 """
 
+import sys
+
+import pytest
 from unittest.mock import MagicMock, patch
 
 from virelo.app.config import DEFAULTS
@@ -105,6 +108,7 @@ def test_calculate_snap_position_vertical_layout():
 # -- ShiftSnapRestore restore --
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Win32 APIs only available on Windows")
 def test_restore_maximized_window():
     """Restore of a previously-maximized window issues SW_MAXIMIZE (SNAP-04)."""
     import ctypes
