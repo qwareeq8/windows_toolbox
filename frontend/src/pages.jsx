@@ -7,6 +7,58 @@ import { useTokens, useTheme, ACCENTS } from './theme.jsx';
 import { Toggle, Button, Card, Row, Segmented, Stepper, Slider, Kbd } from './primitives.jsx';
 import { Icon } from './icons.jsx';
 
+function KeyCapture({ value, target, bridge }) {
+  const t = useTokens();
+  const [capturing, setCapturing] = React.useState(false);
+  const btnRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!capturing) return;
+    const onStatus = (status) => {
+      if (status === 'done' || status === 'cancelled' || status === 'timeout') {
+        setCapturing(false);
+      }
+    };
+    bridge.capture_status.connect(onStatus);
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setCapturing(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', (e) => {
+        if (btnRef.current && !btnRef.current.contains(e.target)) setCapturing(false);
+      }, { once: true });
+    }, 50);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      clearTimeout(timer);
+    };
+  }, [capturing, bridge]);
+
+  const handleClick = () => {
+    if (capturing) return;
+    setCapturing(true);
+    bridge.capture_key(target, () => {});
+  };
+
+  return (
+    <button ref={btnRef} onClick={handleClick} style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: 64, height: 28, padding: '0 12px',
+      background: t.isDark ? 'rgba(255,255,255,0.06)' : '#fff',
+      border: capturing ? `2px solid ${t.accent}` : `1px solid ${t.borderHi}`,
+      borderRadius: 4,
+      color: capturing ? t.accent : t.text,
+      fontSize: 11, fontWeight: 600, letterSpacing: 0.3,
+      fontFamily: t.mono, cursor: 'pointer',
+      boxShadow: t.isDark ? 'none' : '0 1px 0 rgba(0,0,0,0.04)',
+      transition: 'border-color .15s, color .15s',
+    }}>
+      {capturing ? 'Press a key...' : value}
+    </button>
+  );
+}
+
 function MonitorPreview({ width, height }) {
   const t = useTokens();
   const mW = 280, mH = 170, pad = 12;
@@ -84,12 +136,12 @@ function SnapPage({ app }) {
         </Row>
       </Card>
 
-      <Card title="Shortcut" subtitle="Tap the modifier key the configured number of times to trigger.">
+      <Card title="Shortcut" subtitle="Press the key button to rebind. Tap the bound key repeatedly to trigger.">
         <Row label="Snap key">
-          <Segmented options={['SHIFT','CTRL','ALT']} value={app.snapKey} onChange={(v) => app.set({ snapKey: v })} mono />
+          <KeyCapture value={app.snapKey} target="snap" bridge={app.bridge} />
         </Row>
         <Row label="Restore key">
-          <Segmented options={['SHIFT','CTRL','ALT']} value={app.restoreKey} onChange={(v) => app.set({ restoreKey: v })} mono />
+          <KeyCapture value={app.restoreKey} target="restore" bridge={app.bridge} />
         </Row>
         <Row label="Press count" description="How many taps trigger the action.">
           <Stepper value={app.pressCount} onChange={(v) => app.set({ pressCount: v })} min={1} max={10} />
@@ -173,6 +225,17 @@ function ShortcutsPage({ app }) {
 
 function GeneralPage({ app }) {
   const t = useTokens();
+  const [confirmReset, setConfirmReset] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!confirmReset) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setConfirmReset(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmReset]);
+
   return (
     <Pg title="General" subtitle="Application-wide preferences.">
       <Card title="Appearance">
@@ -207,9 +270,33 @@ function GeneralPage({ app }) {
 
       <Card title="Advanced">
         <Row label="Reset all settings" description="Restore every preference to its default value." last>
-          <Button variant="danger" size="sm">Reset</Button>
+          <Button variant="danger" size="sm" onClick={() => setConfirmReset(true)}>Reset</Button>
         </Row>
       </Card>
+
+      {confirmReset && (
+        <div onClick={() => setConfirmReset(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          background: t.overlay, backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: 360, background: t.surface,
+            border: `1px solid ${t.borderHi}`, borderRadius: t.radius + 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.08)',
+            padding: `${t.cardPad + 4}px ${t.cardPad}px`,
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: t.text, marginBottom: 8 }}>Reset all settings?</div>
+            <div style={{ fontSize: 13, color: t.textDim, lineHeight: 1.5, marginBottom: 20 }}>
+              This will restore every preference to its default value. This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button variant="secondary" onClick={() => setConfirmReset(false)}>Cancel</Button>
+              <Button variant="danger" onClick={() => { app.onReset(); setConfirmReset(false); }}>Reset</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Pg>
   );
 }
