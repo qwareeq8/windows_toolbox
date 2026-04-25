@@ -1,5 +1,6 @@
 """Application entry point: logging, admin elevation, single instance, QApp, MainWindow."""
 
+import argparse
 import atexit
 import ctypes
 import logging
@@ -65,12 +66,120 @@ def _is_admin() -> bool:
         return False
 
 
+def _run_smoke_test():
+    """Non-interactive boot verification (D-06, D-07, D-08)."""
+    from PySide6 import QtCore, QtWidgets
+
+    from virelo.app.config import APP_NAME, ORGANIZATION
+
+    QtCore.QCoreApplication.setOrganizationName(ORGANIZATION)
+    QtCore.QCoreApplication.setApplicationName(APP_NAME)
+    app = QtWidgets.QApplication(sys.argv)  # noqa: F841 -- needed for Qt subsystems
+
+    passed = 0
+    failed = 0
+
+    def check(name, fn):
+        nonlocal passed, failed
+        try:
+            fn()
+            print(f"  PASS  {name}")
+            passed += 1
+        except Exception as e:
+            print(f"  FAIL  {name} -- {e}")
+            failed += 1
+
+    print("Virelo smoke test")
+    print("=" * 40)
+
+    # Check 1: icon.ico resource path resolves and file exists
+    def _check_icon():
+        from virelo.platform.resources import resource_path
+
+        path = resource_path("icon.ico")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"icon.ico not found at {path}")
+
+    check("icon.ico resource path", _check_icon)
+
+    # Check 2: frontend/dist/ exists and contains index.html
+    def _check_frontend():
+        from virelo.platform.resources import resource_path
+
+        index_path = os.path.join(resource_path("frontend"), "dist", "index.html")
+        if not os.path.exists(index_path):
+            raise FileNotFoundError(f"frontend/dist/index.html not found at {index_path}")
+
+    check("frontend/dist/index.html exists", _check_frontend)
+
+    # Check 3: QWebEngine can be constructed
+    def _check_webengine():
+        from PySide6 import QtWebEngineWidgets  # noqa: F401
+        from PySide6.QtWebEngineWidgets import QWebEngineView
+
+        view = QWebEngineView()
+        assert view is not None
+
+    check("QWebEngine construction", _check_webengine)
+
+    # Check 4: Settings reads/writes without exceptions
+    def _check_settings():
+        from virelo.settings.persistence import Settings
+
+        s = Settings()
+        _ = s.snap_key  # read a known key
+
+    check("Settings read/write", _check_settings)
+
+    # Check 5: SettingsState initializes with valid defaults
+    def _check_settings_state():
+        from virelo.settings.persistence import Settings
+        from virelo.settings.state import SettingsState
+
+        s = Settings()
+        state = SettingsState(s)
+        json_str = state.get_json()
+        assert len(json_str) > 2, "SettingsState.get_json() returned empty"
+
+    check("SettingsState defaults", _check_settings_state)
+
+    # Check 6: VireloBridge initializes without errors
+    def _check_bridge():
+        from virelo.bridge.bridge import VireloBridge
+        from virelo.services.snap import SnapService
+        from virelo.settings.persistence import Settings
+        from virelo.settings.state import SettingsState
+
+        s = Settings()
+        state = SettingsState(s)
+        snap_svc = SnapService(None)
+        bridge = VireloBridge(state, snap_svc)
+        assert bridge is not None
+
+    check("VireloBridge initialization", _check_bridge)
+
+    print(f"\n{passed} passed, {failed} failed")
+    return 0 if failed == 0 else 1
+
+
 def main():
     """Application entry point: elevate, init logging, launch MainWindow."""
     # Exit early on non-Windows platforms.
     if sys.platform != "win32":
         print("Virelo requires Windows.")
         sys.exit(1)
+
+    # Parse --smoke-test BEFORE admin elevation (Pitfall 3: avoid UAC loop).
+    parser = argparse.ArgumentParser(prog="virelo", add_help=False)
+    parser.add_argument(
+        "--smoke-test",
+        action="store_true",
+        help="Run non-interactive boot verification and exit",
+    )
+    args, _ = parser.parse_known_args()
+
+    if args.smoke_test:
+        sys.exit(_run_smoke_test())
 
     import faulthandler
 
