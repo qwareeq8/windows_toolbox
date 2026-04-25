@@ -63,6 +63,12 @@ Virelo uses a Python/PySide6 backend that hosts a React frontend inside a QWebEn
 
 In release mode, the frontend is built to static files (`frontend/dist/`) and loaded via `file://` URL. In dev mode, it connects to the Vite dev server.
 
+## Documentation
+
+- [Building from Source](docs/BUILD.md) -- Full build pipeline, development mode, version management
+- [Troubleshooting](docs/TROUBLESHOOTING.md) -- Common build and runtime issues with fixes
+- [Release Checklist](docs/RELEASE.md) -- Step-by-step release process
+
 ## Status
 
 Under active development. Current version 1.5.0.
