@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 7 of 8 (CI and Repo Hygiene)
-Plan: 0 of 0 complete
-Status: Not started
-Last activity: 2026-04-25 -- Phase 6 complete (UI action placement)
+Plan: 0 of 4 complete
+Status: Ready to execute
+Last activity: 2026-04-24 -- Phase 7 planned (4 plans, 2 waves)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -90,5 +90,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-24
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-ci-and-repo-hygiene/07-CONTEXT.md
+Stopped at: Phase 7 planned (4 plans, 2 waves)
+Resume file: .planning/phases/07-ci-and-repo-hygiene/07-01-PLAN.md
