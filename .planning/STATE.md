@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 8 of 8 (Window Chrome and Release)
-Plan: 0 of 3 complete
-Status: Ready to execute
-Last activity: 2026-04-24 -- Phase 8 planned (3 plans in 1 wave)
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-04-25 -- Completed 08-01 (window chrome fixes)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -50,8 +50,8 @@ Progress: [░░░░░░░░░░] 0%
 | 07 | 02 | 1min | 2 | 3 |
 | 07 | 03 | 1min | 2 | 3 |
 
-*Updated after each plan completion*
-| Phase 07 P04 | 5min | 2 tasks | 4 files |
+| 07 | 04 | 5min | 2 | 4 |
+| 08 | 01 | 2min | 3 | 3 |
 
 ## Accumulated Context
 
@@ -82,7 +82,10 @@ Recent decisions affecting current work:
 - [07-03]: frontend/package.json version updated from 1.4.2 to 1.5.0 to match config.py APP_VERSION; CI version-check now passes
 - [07-03]: README.md Python requirement updated from 3.8+ to 3.12+ to match pyproject.toml requires-python
 - [07-03]: installer MyAppURL changed from mailto:qwareeq8@gmail.com to GitHub URL matching APP_SUPPORT_URL (no #ifndef guard needed for MyAppURL)
-- [Phase ?]: 07-04: Variable names _hotkey_listener and shift_mgr preserved per D-13/D-14 — only class names changed
+- [Phase ?]: 07-04: Variable names _hotkey_listener and shift_mgr preserved per D-13/D-14 -- only class names changed
+- [08-01]: TITLE_BAR_HEIGHT=35 matches frontend TitleBar (34px+1px border)
+- [08-01]: CONTROLS_WIDTH=60 excludes two 28px buttons plus safety margin from drag zone
+- [08-01]: pos.x() >= BORDER condition ensures left resize border takes priority over drag
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ Items carried from v1.0:
 
 ## Session Continuity
 
-Last session: 2026-04-24
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-window-chrome-and-release/08-CONTEXT.md
+Last session: 2026-04-25
+Stopped at: Completed 08-01-PLAN.md
+Resume file: .planning/phases/08-window-chrome-and-release/08-02-PLAN.md
