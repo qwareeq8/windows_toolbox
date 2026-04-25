@@ -56,7 +56,11 @@ Plans:
   3. User sees a footer containing only the status message, dirty indicator, Discard, and Save -- no Reset Defaults button; Reset Defaults lives on the General page behind a confirmation dialog
   4. User can rebind snap and restore keys using press-to-capture controls instead of segmented SHIFT/CTRL/ALT selectors, with the new binding shown as a dirty draft change
   5. User sees only real, implemented actions in the command palette and accurate descriptions on the Shortcuts page
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 06-01-PLAN.md -- Footer cleanup and Test Snap relocation to Target Size card header
+- [ ] 06-02-PLAN.md -- Key capture controls and Reset confirmation dialog
+- [ ] 06-03-PLAN.md -- Command palette truthfulness and Shortcuts page accuracy
 **UI hint**: yes
 
 ### Phase 7: CI and Repo Hygiene
@@ -96,6 +100,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Structure and Quality | v1.0 | 5/5 | Complete | 2026-04-24 |
 | 4. Snap and Explorer Hardening | v1.0 | 3/3 | Complete | 2026-04-24 |
 | 5. Bridge and Settings Correctness | v1.1 | 3/3 | Complete | 2026-04-25 |
-| 6. UI Action Placement | v1.1 | 0/0 | Not started | - |
+| 6. UI Action Placement | v1.1 | 0/3 | Not started | - |
 | 7. CI and Repo Hygiene | v1.1 | 0/0 | Not started | - |
 | 8. Window Chrome and Release | v1.1 | 0/0 | Not started | - |
