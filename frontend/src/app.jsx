@@ -117,14 +117,13 @@ function Sidebar({ nav, setNav, app, mode }) {
   );
 }
 
-function Footer({ unsaved, onSave, onDiscard, onReset, onTestSnap, statusMsg }) {
+function Footer({ unsaved, onSave, onDiscard, statusMsg }) {
   const t = useTokens();
   return (
     <div style={{
       padding: '12px 24px', borderTop: `1px solid ${t.border}`,
       background: t.surface, display: 'flex', alignItems: 'center', gap: 10,
     }}>
-      <Button variant="ghost" icon={<Icon name="play" size={12} />} onClick={onTestSnap}>Test snap</Button>
       {statusMsg && (
         <span style={{ fontSize: 12, color: t.textDim }}>{statusMsg}</span>
       )}
@@ -138,7 +137,6 @@ function Footer({ unsaved, onSave, onDiscard, onReset, onTestSnap, statusMsg }) 
           <Button variant="secondary" onClick={onDiscard}>Discard</Button>
         </>
       )}
-      <Button variant="secondary" onClick={onReset}>Reset defaults</Button>
       <Button variant="primary" onClick={onSave}>Save changes</Button>
     </div>
   );
@@ -242,7 +240,7 @@ export default function VireloApp({ bridge }) {
       return next;
     });
   };
-  const app = { ...state, set };
+  const app = { ...state, set, onTestSnap: handleTestSnap, onReset: handleReset, bridge };
 
   const handleSave = () => {
     bridge.commit_draft((result) => {
@@ -326,8 +324,6 @@ export default function VireloApp({ bridge }) {
         unsaved={unsaved}
         onSave={handleSave}
         onDiscard={handleDiscard}
-        onReset={handleReset}
-        onTestSnap={handleTestSnap}
         statusMsg={statusMsg}
       />
       <CommandPalette open={palette} onClose={() => setPalette(false)} app={app} setNav={setNav}

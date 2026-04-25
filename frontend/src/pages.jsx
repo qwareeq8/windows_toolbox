@@ -99,14 +99,28 @@ function SnapPage({ app }) {
         </Row>
       </Card>
 
-      <Card title="Target size" subtitle="Snapped windows will match this fraction of the current display.">
+      <Card padding={false}>
+        <div style={{
+          padding: `${t.rowPad + 2}px ${t.cardPad}px`,
+          borderBottom: `1px solid ${t.border}`,
+          background: t.surface2,
+          display: 'flex', alignItems: 'center',
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.text, letterSpacing: -0.1 }}>Target size</div>
+            <div style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>Snapped windows will match this fraction of the current display.</div>
+          </div>
+          <Button variant="ghost" icon={<Icon name="play" size={12} />} onClick={app.onTestSnap}>Test snap</Button>
+        </div>
         <MonitorPreview width={app.width} height={app.height} />
-        <Row label="Width" description={`${app.width}% of screen width`}>
-          <Slider value={app.width} onChange={(v) => app.set({ width: v })} />
-        </Row>
-        <Row label="Height" description={`${app.height}% of screen height`} last>
-          <Slider value={app.height} onChange={(v) => app.set({ height: v })} />
-        </Row>
+        <div style={{ padding: `4px ${t.cardPad}px` }}>
+          <Row label="Width" description={`${app.width}% of screen width`}>
+            <Slider value={app.width} onChange={(v) => app.set({ width: v })} />
+          </Row>
+          <Row label="Height" description={`${app.height}% of screen height`} last>
+            <Slider value={app.height} onChange={(v) => app.set({ height: v })} />
+          </Row>
+        </div>
       </Card>
     </Pg>
   );
