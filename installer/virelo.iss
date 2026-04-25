@@ -1,6 +1,6 @@
 #define MyAppName "Virelo"
 #define MyAppPublisher "Yusuf Qwareeq"
-#define MyAppURL "mailto:qwareeq8@gmail.com"
+#define MyAppURL "https://github.com/yusufqwareeq/virelo"
 #define MyAppExeName "Virelo.exe"
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0-dev"
