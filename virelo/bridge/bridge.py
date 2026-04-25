@@ -37,6 +37,7 @@ class VireloBridge(QObject):
     theme_applied = Signal(str)  # "dark" or "light" (effective theme)
     snap_status = Signal(str, int)  # (message, timeout_ms)
     capture_status = Signal(str)  # "capturing", "done", "cancelled", "timeout"
+    dirty_changed = Signal(bool)  # True = unsaved draft exists, False = clean
 
     def __init__(
         self,
@@ -87,6 +88,7 @@ class VireloBridge(QObject):
             if result.get("ok"):
                 # Push updated settings (with draft overlay) to frontend
                 self.settings_changed.emit(self._state.get_json())
+                self.dirty_changed.emit(self._state.has_draft)
             return json.dumps(result)
         except json.JSONDecodeError as e:
             return json.dumps({"ok": False, "error": f"Invalid JSON: {e}"})
@@ -101,6 +103,7 @@ class VireloBridge(QObject):
             result = self._state.commit_draft()
             if result.get("ok"):
                 self.settings_changed.emit(self._state.get_json())
+                self.dirty_changed.emit(False)
                 self._apply_side_effects(result.get("applied", {}))
             return json.dumps(result)
         except Exception as e:
@@ -113,6 +116,7 @@ class VireloBridge(QObject):
         try:
             self._state.discard_draft()
             self.settings_changed.emit(self._state.get_json())
+            self.dirty_changed.emit(False)
             return json.dumps({"ok": True})
         except Exception as e:
             LOG.exception("discard_draft failed")
@@ -129,6 +133,7 @@ class VireloBridge(QObject):
         try:
             new_settings = self._state.reset_to_defaults()
             self.settings_changed.emit(self._state.get_json())
+            self.dirty_changed.emit(False)
             # Apply all business logic side effects
             if self._main_window:
                 self._main_window._update_snap_enabled_state()
