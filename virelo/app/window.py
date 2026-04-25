@@ -20,7 +20,7 @@ from virelo.platform.theme import (
     toggle_theme_mode,
 )
 from virelo.services.explorer_service import ExplorerService
-from virelo.services.snap import HotkeyListener, ShiftSnapRestore, SnapService
+from virelo.services.snap import MultiPressHotkeyListener, SnapRestoreController, SnapService
 from virelo.settings import Settings, SettingsState
 from virelo.workers.key_capture import KeyCaptureWorker
 
@@ -171,7 +171,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tray_icon.activated.connect(self._on_tray_activated)
         self.tray_icon.show()
 
-        # snap_enabled used by business logic (ShiftSnapRestore, _test_snap)
+        # snap_enabled used by business logic (SnapRestoreController, _test_snap)
         self.snap_enabled = bool(self.settings.enable_snap)
 
         # --- Bridge + WebView ---
@@ -194,9 +194,9 @@ class MainWindow(QtWidgets.QMainWindow):
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Enter"), self, activated=self._test_snap)
         QtGui.QShortcut(QtGui.QKeySequence("F1"), self, activated=self._show_help)
 
-        # HotkeyListener + ShiftSnapRestore (per D-01/D-02/D-03)
-        self._hotkey_listener = HotkeyListener(self.settings)
-        self.shift_mgr = ShiftSnapRestore(self.settings)
+        # MultiPressHotkeyListener + SnapRestoreController (per D-01/D-02/D-03)
+        self._hotkey_listener = MultiPressHotkeyListener(self.settings)
+        self.shift_mgr = SnapRestoreController(self.settings)
         self._hotkey_listener.triggered.connect(self.shift_mgr.perform)
         self.shift_mgr.blocked.connect(lambda message: self.snap_key_status.emit(message, 3000))
         self._snap_service.set_manager(self.shift_mgr)

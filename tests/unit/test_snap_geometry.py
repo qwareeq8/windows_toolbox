@@ -105,7 +105,7 @@ def test_calculate_snap_position_vertical_layout():
     assert y == 1080 + (1440 - h) // 2  # 1253
 
 
-# -- ShiftSnapRestore restore --
+# -- SnapRestoreController restore --
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Win32 APIs only available on Windows")
@@ -117,10 +117,10 @@ def test_restore_maximized_window():
     import win32con
     import win32gui
 
-    from virelo.services.snap import ShiftSnapRestore
+    from virelo.services.snap import SnapRestoreController
 
-    # Create ShiftSnapRestore bypassing __init__ (avoids keyboard hooks and EnumWindows)
-    mgr = ShiftSnapRestore.__new__(ShiftSnapRestore)
+    # Create SnapRestoreController bypassing __init__ (avoids keyboard hooks and EnumWindows)
+    mgr = SnapRestoreController.__new__(SnapRestoreController)
     mgr.settings = _make_settings()
 
     test_hwnd = 12345
