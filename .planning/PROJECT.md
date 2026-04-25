@@ -46,6 +46,11 @@ The keyboard-triggered window snap must work reliably on any foreground window a
 - ✓ Fake controls removed, all UI wired to Python bridge — v1.0
 - ✓ Codebase restructured as testable virelo/ package with CI — v1.0
 - ✓ Hotkey detection separated from window movement, ExplorerService extracted — v1.0
+- ✓ Source assets committed for reproducible clone-and-build — Phase 7
+- ✓ Clean script removes all generated artifacts recursively — Phase 7
+- ✓ CI passes without false positives (stale-name, platform guards) — Phase 7
+- ✓ Version strings synchronized across config.py, package.json, README, installer — Phase 7
+- ✓ Stale class names renamed (SnapRestoreController, MultiPressHotkeyListener) — Phase 7
 
 ### Active
 
@@ -112,4 +117,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-25 after Phase 5*
+*Last updated: 2026-04-25 after Phase 7*
