@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-25T02:00:00Z"
-last_activity: 2026-04-25 -- Completed Plan 03 (frontend dirty state and preference routing)
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-04-25T01:51:00Z"
+last_activity: 2026-04-25 -- Completed Plan 03 (version sync: package.json, README, installer URL)
 progress:
   total_phases: 4
   completed_phases: 0
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 7 of 8 (CI and Repo Hygiene)
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: Executing
-Last activity: 2026-04-25 -- Completed 07-02 (fix CI false positives, add version-check job, platform guard)
+Last activity: 2026-04-25 -- Completed 07-03 (sync package.json version to 1.5.0, README Python 3.12+, installer GitHub URL)
 
-Progress: [██░░░░░░░░] 50%
+Progress: [███░░░░░░░] 75%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [██░░░░░░░░] 50%
 | 05 | 03 | 3min | 2 | 4 |
 | 07 | 01 | 1min | 2 | 8 |
 | 07 | 02 | 1min | 2 | 3 |
+| 07 | 03 | 1min | 2 | 3 |
 
 *Updated after each plan completion*
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [07-02]: --exclude-dir=.github added to stale-name grep so ci.yml does not self-match its own command string
 - [07-02]: version-check CI job added using grep -oP to extract versions from config.py and package.json; fails on mismatch
 - [07-02]: @pytest.mark.skipif(sys.platform != "win32") added to test_restore_maximized_window to prevent ctypes.wintypes ImportError on Linux CI
+- [07-03]: frontend/package.json version updated from 1.4.2 to 1.5.0 to match config.py APP_VERSION; CI version-check now passes
+- [07-03]: README.md Python requirement updated from 3.8+ to 3.12+ to match pyproject.toml requires-python
+- [07-03]: installer MyAppURL changed from mailto:qwareeq8@gmail.com to GitHub URL matching APP_SUPPORT_URL (no #ifndef guard needed for MyAppURL)
 
 ### Pending Todos
 
@@ -98,5 +102,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-25
-Stopped at: Completed 07-02-PLAN.md
-Resume file: .planning/phases/07-ci-and-repo-hygiene/07-03-PLAN.md
+Stopped at: Completed 07-03-PLAN.md
+Resume file: .planning/phases/07-ci-and-repo-hygiene/07-04-PLAN.md
