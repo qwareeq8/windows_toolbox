@@ -49,6 +49,38 @@ if (Test-Path "Windows Toolbox.spec") {
     $errors += "Stale file found: Windows Toolbox.spec (should have been renamed to Virelo.spec)"
 }
 
+# --- Version cross-check (config.py vs package.json) ---
+$pkgJson = Get-Content "frontend\package.json" | ConvertFrom-Json
+$pkgJsonVersion = $pkgJson.version
+if ($AppVersion -ne $pkgJsonVersion) {
+    $errors += "Version mismatch: config.py=$AppVersion, package.json=$pkgJsonVersion"
+} else {
+    Write-Host "[verify-release] OK: Versions match ($AppVersion)"
+}
+
+# --- Bundled icon.ico in dist/ ---
+if (-not (Test-Path "dist\Virelo\icon.ico")) {
+    $errors += "Missing: dist\Virelo\icon.ico"
+} else {
+    Write-Host "[verify-release] OK: dist/Virelo/icon.ico"
+}
+
+# --- Bundled frontend/dist/ in dist/ ---
+if (-not (Test-Path "dist\Virelo\frontend\dist\index.html")) {
+    $errors += "Missing: dist\Virelo\frontend\dist\index.html"
+} else {
+    Write-Host "[verify-release] OK: dist/Virelo/frontend/dist/index.html"
+}
+
+# --- No stale naming in dist/ ---
+$staleFiles = Get-ChildItem "dist\Virelo" -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match "(?i)windows.toolbox|(?i)toolbox" }
+if ($staleFiles) {
+    $errors += "Stale naming found in dist/: $($staleFiles.Name -join ', ')"
+} else {
+    Write-Host "[verify-release] OK: No stale naming in dist/"
+}
+
 # --- Report ---
 if ($errors.Count -gt 0) {
     Write-Host ""
