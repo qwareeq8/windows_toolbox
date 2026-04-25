@@ -89,6 +89,10 @@ class VireloBridge(QObject):
                 # Push updated settings (with draft overlay) to frontend
                 self.settings_changed.emit(self._state.get_json())
                 self.dirty_changed.emit(self._state.has_draft)
+                if "theme" in data and self._main_window:
+                    applied_theme = result.get("applied", {}).get("theme")
+                    if applied_theme:
+                        self._main_window._apply_theme_mode(applied_theme)
             return json.dumps(result)
         except json.JSONDecodeError as e:
             return json.dumps({"ok": False, "error": f"Invalid JSON: {e}"})
@@ -117,6 +121,9 @@ class VireloBridge(QObject):
             self._state.discard_draft()
             self.settings_changed.emit(self._state.get_json())
             self.dirty_changed.emit(False)
+            if self._main_window:
+                persisted_theme = self._state._settings.theme
+                self._main_window._apply_theme_mode(persisted_theme)
             return json.dumps({"ok": True})
         except Exception as e:
             LOG.exception("discard_draft failed")
@@ -185,45 +192,15 @@ class VireloBridge(QObject):
 
     # --- Theme Slots ---
 
-    @Slot(str, result=str)
-    def apply_theme(self, mode: str) -> str:
-        """Apply theme mode: 'system', 'dark', or 'light'."""
-        if mode not in ("system", "dark", "light"):
-            return json.dumps({"ok": False, "error": f"Invalid theme mode: {mode}"})
-        if self._main_window is None:
-            return json.dumps({"ok": False, "error": "MainWindow not ready"})
-        try:
-            self._main_window._apply_theme_mode(mode)
-            # Store in draft (not persisted until commit)
-            self._state.apply_draft({"theme": mode})
-            return json.dumps({"ok": True})
-        except Exception as e:
-            LOG.exception("apply_theme failed")
-            return json.dumps({"ok": False, "error": str(e)})
-
     @Slot(result=str)
     def get_theme_mode(self) -> str:
-        """Return current theme mode as structured JSON."""
-        mode = "dark"
+        """Return current theme mode and effective theme as structured JSON."""
+        mode = "system"
+        effective = "dark"
         if self._main_window:
-            mode = getattr(self._main_window, "_theme_mode", "dark")
-        return json.dumps({"ok": True, "data": mode})
-
-    # --- Startup Slot ---
-
-    @Slot(bool, result=str)
-    def toggle_run_at_startup(self, enabled: bool) -> str:
-        """Toggle run-at-startup shortcut."""
-        if self._main_window is None:
-            return json.dumps({"ok": False, "error": "MainWindow not ready"})
-        try:
-            self._main_window.action_run_at_startup.setChecked(enabled)
-            self._main_window._toggle_run_at_startup()
-            actual = self._main_window.action_run_at_startup.isChecked()
-            return json.dumps({"ok": True, "data": {"enabled": actual}})
-        except Exception as e:
-            LOG.exception("toggle_run_at_startup failed")
-            return json.dumps({"ok": False, "error": str(e)})
+            mode = getattr(self._main_window, "_theme_mode", "system")
+            effective = getattr(self._main_window, "_theme_state", "dark")
+        return json.dumps({"ok": True, "data": {"mode": mode, "effective": effective}})
 
     @Slot(result=str)
     def get_launch_at_login(self) -> str:
@@ -286,3 +263,22 @@ class VireloBridge(QObject):
 
         if "theme" in applied:
             mw._apply_theme_mode(applied["theme"])
+
+        if "run_at_startup" in applied:
+            try:
+                from virelo.app.window import create_startup_shortcut, remove_startup_shortcut
+                if applied["run_at_startup"]:
+                    create_startup_shortcut()
+                else:
+                    remove_startup_shortcut()
+            except Exception:
+                LOG.exception("Startup shortcut error")
+                self.snap_status.emit("Failed to update startup shortcut.", 5000)
+
+        if "minimize_to_tray" in applied:
+            mw.minimize_to_tray_on_exit = bool(applied["minimize_to_tray"])
+
+        if "run_at_startup" in applied:
+            mw.action_run_at_startup.setChecked(bool(applied["run_at_startup"]))
+        if "minimize_to_tray" in applied:
+            mw.action_minimize_on_exit.setChecked(bool(applied["minimize_to_tray"]))

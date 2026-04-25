@@ -103,7 +103,6 @@ class MainWindow(QtWidgets.QMainWindow):
     via WM_NCHITTEST (min 860x600, default 1000x620).
     """
 
-    key_captured = QtCore.Signal(str)
     snap_key_status = QtCore.Signal(str, int)
 
     def __init__(self):
@@ -155,7 +154,7 @@ class MainWindow(QtWidgets.QMainWindow):
         open_act = menu.addAction("Open")
         open_act.triggered.connect(self._restore_window)
 
-        self.minimize_to_tray_on_exit = True
+        self.minimize_to_tray_on_exit = bool(getattr(self.settings, "minimize_to_tray", True))
         self.action_minimize_on_exit = menu.addAction("Minimize to Tray")
         self.action_minimize_on_exit.setCheckable(True)
         self.action_minimize_on_exit.setChecked(self.minimize_to_tray_on_exit)
@@ -171,8 +170,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.activated.connect(self._on_tray_activated)
         self.tray_icon.show()
-
-        self.key_captured.connect(self.on_key_captured)
 
         # snap_enabled used by business logic (ShiftSnapRestore, _test_snap)
         self.snap_enabled = bool(self.settings.enable_snap)
@@ -256,11 +253,6 @@ class MainWindow(QtWidgets.QMainWindow):
     # Key capture (preserved -- uses bridge signals for status updates)
     # ------------------------------------------------------------------
 
-    @QtCore.Slot(str)
-    def on_key_captured(self, key: str):
-        self.settings.snap_key = key
-        self._bridge.snap_status.emit(f"Snap key set to {key.upper()}.", 3000)
-
     def _start_key_capture(self):
         self._begin_key_capture("snap", "Press desired snap key... (Esc to cancel)")
 
@@ -289,19 +281,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _on_capture_key(self, key: str):
         key_str = str(key).lower()
-        if self._capture_target == "restore":
-            self.settings.restore_key = key_str
-            if hasattr(self, "_hotkey_listener"):
-                self._hotkey_listener.update_restore_key(key_str)
-            self._bridge.capture_status.emit("done")
-            self._bridge.snap_status.emit(f"Restore key set to {key_str.upper()}.", 3000)
-            self._bridge.settings_changed.emit(self._settings_state.get_json())
-        else:
-            if hasattr(self, "_hotkey_listener"):
-                self._hotkey_listener.update_binding(key_str)
-            self.key_captured.emit(key_str)
-            self._bridge.capture_status.emit("done")
-            self._bridge.settings_changed.emit(self._settings_state.get_json())
+        target_key = "restore_key" if self._capture_target == "restore" else "snap_key"
+        self._settings_state.apply_draft({target_key: key_str})
+        self._bridge.settings_changed.emit(self._settings_state.get_json())
+        self._bridge.dirty_changed.emit(True)
+        self._bridge.capture_status.emit("done")
+        label = "Restore" if self._capture_target == "restore" else "Snap"
+        self._bridge.snap_status.emit(f"{label} key set to {key_str.upper()}.", 3000)
 
     def _on_capture_cancelled(self, reason: str):
         message = "Key capture timed out." if reason == "timeout" else "Key capture cancelled."
@@ -397,21 +383,32 @@ class MainWindow(QtWidgets.QMainWindow):
             self.center_on_screen()
 
     def _toggle_minimize_on_exit(self):
-        self.minimize_to_tray_on_exit = not self.minimize_to_tray_on_exit
-        self.action_minimize_on_exit.setChecked(self.minimize_to_tray_on_exit)
+        checked = self.action_minimize_on_exit.isChecked()
+        result = self._settings_state.apply_draft({"minimize_to_tray": checked})
+        if result.get("ok"):
+            commit_result = self._settings_state.commit_draft()
+            if commit_result.get("ok"):
+                self._bridge.settings_changed.emit(self._settings_state.get_json())
+                self._bridge.dirty_changed.emit(False)
+                self._bridge._apply_side_effects(commit_result.get("applied", {}))
+            else:
+                self.action_minimize_on_exit.setChecked(not checked)
+        else:
+            self.action_minimize_on_exit.setChecked(not checked)
 
     def _toggle_run_at_startup(self):
-        try:
-            if self.action_run_at_startup.isChecked():
-                create_startup_shortcut()
-                self.settings.run_at_startup = True
+        checked = self.action_run_at_startup.isChecked()
+        result = self._settings_state.apply_draft({"run_at_startup": checked})
+        if result.get("ok"):
+            commit_result = self._settings_state.commit_draft()
+            if commit_result.get("ok"):
+                self._bridge.settings_changed.emit(self._settings_state.get_json())
+                self._bridge.dirty_changed.emit(False)
+                self._bridge._apply_side_effects(commit_result.get("applied", {}))
             else:
-                remove_startup_shortcut()
-                self.settings.run_at_startup = False
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Error", f"Failed to modify startup shortcut:\n{e}")
-            self.action_run_at_startup.setChecked(False)
-        self.settings.save()
+                self.action_run_at_startup.setChecked(not checked)
+        else:
+            self.action_run_at_startup.setChecked(not checked)
 
     def _toggle_theme(self):
         new_mode = toggle_theme_mode(self._theme_mode, get_windows_theme())
@@ -419,7 +416,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _apply_theme_mode(self, mode: str):
         self._theme_mode = normalize_theme_mode(mode, DEFAULTS["theme"])
-        self.settings.theme = self._theme_mode
         if self._theme_mode == "system":
             self._start_theme_sync()
         else:
