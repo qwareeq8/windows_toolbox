@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish and Correctness
 status: executing
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-04-25T02:52:54Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-04-25T02:58:28Z"
 last_activity: 2026-04-25
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 Milestone: v1.1 -- Polish and Correctness
 Phase: 8 of 8 (Window Chrome and Release)
-Plan: 2 of 3 complete
+Plan: 3 of 3 complete
 Status: Executing
-Last activity: 2026-04-25 -- Completed 08-02 (smoke test and release verification)
+Last activity: 2026-04-25 -- Completed 08-03 (gitignore and public documentation)
 
-Progress: [██████░░░░] 67%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [██████░░░░] 67%
 | 07 | 04 | 5min | 2 | 4 |
 | 08 | 01 | 2min | 3 | 3 |
 | 08 | 02 | 2min | 2 | 2 |
+| 08 | 03 | 2min | 3 | 5 |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [08-02]: --smoke-test parsed before admin elevation to avoid UAC loop (Pitfall 3)
 - [08-02]: argparse add_help=False and parse_known_args to avoid interfering with Qt arguments
 - [08-02]: All 4 new verify-release checks use PowerShell cmdlets (no $LASTEXITCODE concern)
+- [08-03]: .planning/ gitignored; docs/ directory created with BUILD.md, TROUBLESHOOTING.md, RELEASE.md
+- [08-03]: README.md Documentation section links to docs/ files without duplicating content
 
 ### Pending Todos
 
@@ -111,5 +114,5 @@ Items carried from v1.0:
 ## Session Continuity
 
 Last session: 2026-04-25
-Stopped at: Completed 08-02-PLAN.md
-Resume file: .planning/phases/08-window-chrome-and-release/08-03-PLAN.md
+Stopped at: Completed 08-03-PLAN.md
+Resume file: None

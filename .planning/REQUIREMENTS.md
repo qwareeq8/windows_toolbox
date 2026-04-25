@@ -44,8 +44,8 @@ Requirements for v1.1 Polish and Correctness. Each maps to roadmap phases.
 - [x] **CHRM-03**: Developer builds without UPX compression until release pipeline is verified stable
 - [x] **CHRM-04**: Developer can run a non-interactive smoke test (--smoke-test) that verifies resource paths, frontend dist, QWebEngine, settings, and bridge init
 - [x] **CHRM-05**: Developer can run release verification that checks version consistency, asset existence, and built content correctness
-- [ ] **CHRM-06**: .planning/ is gitignored and not published; public docs exist in README.md and docs/
-- [ ] **CHRM-07**: Public documentation covers build instructions, troubleshooting, and release checklist with correct product name and accurate descriptions
+- [x] **CHRM-06**: .planning/ is gitignored and not published; public docs exist in README.md and docs/
+- [x] **CHRM-07**: Public documentation covers build instructions, troubleshooting, and release checklist with correct product name and accurate descriptions
 
 ## Future Requirements
 
@@ -104,8 +104,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHRM-03 | Phase 8 | Complete (08-01) |
 | CHRM-04 | Phase 8 | Complete (08-02) |
 | CHRM-05 | Phase 8 | Complete (08-02) |
-| CHRM-06 | Phase 8 | Pending |
-| CHRM-07 | Phase 8 | Pending |
+| CHRM-06 | Phase 8 | Complete (08-03) |
+| CHRM-07 | Phase 8 | Complete (08-03) |
 
 **Coverage:**
 - v1.1 requirements: 28 total
