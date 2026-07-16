@@ -109,7 +109,8 @@ $bundleRoot = "dist\Virelo"
 $exePath = Join-Path $bundleRoot "Virelo.exe"
 $manifestPath = Join-Path $bundleRoot ".release.json"
 $bundleChecksums = Join-Path $bundleRoot "bundle-files.sha256"
-foreach ($requiredPath in @($exePath, $manifestPath, $bundleChecksums)) {
+$licensePath = Join-Path $bundleRoot "_internal\LICENSE"
+foreach ($requiredPath in @($exePath, $manifestPath, $bundleChecksums, $licensePath)) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
         Add-ReleaseError "A required bundle artifact is missing: $requiredPath."
     }
@@ -175,11 +176,11 @@ if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
             (Test-Path -LiteralPath $currentFrontendRoot -PathType Container) -and
             (Test-Path -LiteralPath $bundledFrontendRoot -PathType Container)
         ) {
-            $currentFrontendPaths = @(Get-ChildItem -LiteralPath $currentFrontendRoot -Recurse -File |
+            $currentFrontendPaths = @(Get-ChildItem -LiteralPath $currentFrontendRoot -Recurse -File -Force |
                 ForEach-Object {
                     Get-VireloRelativePath -Root $currentFrontendRoot -Path $_.FullName
                 } | Sort-Object)
-            $bundledFrontendPaths = @(Get-ChildItem -LiteralPath $bundledFrontendRoot -Recurse -File |
+            $bundledFrontendPaths = @(Get-ChildItem -LiteralPath $bundledFrontendRoot -Recurse -File -Force |
                 ForEach-Object {
                     Get-VireloRelativePath -Root $bundledFrontendRoot -Path $_.FullName
                 } | Sort-Object)

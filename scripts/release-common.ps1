@@ -32,6 +32,7 @@ function Get-VireloReleaseInputPaths {
     param([Parameter(Mandatory = $true)][string]$ProjectRoot)
 
     $explicitFiles = @(
+        "LICENSE",
         "Virelo.spec",
         "icon.ico",
         "installer\virelo.iss",
@@ -67,7 +68,7 @@ function Get-VireloReleaseInputPaths {
         if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
             throw "A required release input directory is missing: $($entry.Key)."
         }
-        Get-ChildItem -LiteralPath $directory -Recurse -File |
+        Get-ChildItem -LiteralPath $directory -Recurse -File -Force |
             Where-Object { $entry.Value -contains $_.Extension } |
             ForEach-Object {
                 $null = $paths.Add(
@@ -106,7 +107,7 @@ function Write-VireloSha256Manifest {
 
     $resolvedRoot = (Resolve-Path -LiteralPath $Root).Path
     $outputFullPath = [System.IO.Path]::GetFullPath($OutputPath)
-    $lines = Get-ChildItem -LiteralPath $resolvedRoot -Recurse -File |
+    $lines = Get-ChildItem -LiteralPath $resolvedRoot -Recurse -File -Force |
         Where-Object {
             -not $_.FullName.Equals(
                 $outputFullPath,
@@ -172,7 +173,7 @@ function Test-VireloSha256Manifest {
     }
 
     $manifestFullPath = [System.IO.Path]::GetFullPath($ManifestPath)
-    Get-ChildItem -LiteralPath $Root -Recurse -File | ForEach-Object {
+    Get-ChildItem -LiteralPath $Root -Recurse -File -Force | ForEach-Object {
         if (-not $_.FullName.Equals(
                 $manifestFullPath,
                 [System.StringComparison]::OrdinalIgnoreCase

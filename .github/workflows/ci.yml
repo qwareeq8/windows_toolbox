@@ -39,7 +39,7 @@ jobs:
         run: |
           python -m ruff check .
           python -m ruff format --check .
-          python -m mypy virelo main.py
+          python -m mypy .
       - name: Run Python unit tests
         run: python -m pytest tests/unit/ -q
 

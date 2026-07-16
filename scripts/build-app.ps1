@@ -23,6 +23,9 @@ if ($LASTEXITCODE -ne 0 -or $gitCommit -notmatch '^[0-9a-f]{40}$') {
     throw "The source commit could not be resolved. Build from a Git checkout."
 }
 $gitStatus = @(& git status --porcelain --untracked-files=normal)
+if ($LASTEXITCODE -ne 0) {
+    throw "The current Git working-tree status could not be read."
+}
 $sourceDirty = $gitStatus.Count -gt 0
 if ($sourceDirty -and -not $AllowDirty) {
     throw "The working tree is not clean. Commit the intended source or pass -AllowDirty for a non-release build."
@@ -47,6 +50,10 @@ if ($LASTEXITCODE -ne 0) {
     throw "The Python runtime architecture could not be determined."
 }
 $pythonRuntime = $pythonRuntimeJson | ConvertFrom-Json
+$pythonVersion = [version]$pythonRuntime.version
+if ($pythonVersion.Major -ne 3 -or $pythonVersion.Minor -lt 12 -or $pythonVersion.Minor -gt 14) {
+    throw "Python 3.12 to 3.14 is required, but $($pythonRuntime.version) is active."
+}
 if ($pythonRuntime.pointerBits -ne 64) {
     throw "A 64-bit Python environment is required, but the virtual environment is $($pythonRuntime.pointerBits)-bit."
 }
@@ -55,7 +62,7 @@ Write-Host "[build-app] Running Python static checks and tests."
 foreach ($arguments in @(
     @("-m", "ruff", "check", "."),
     @("-m", "ruff", "format", "--check", "."),
-    @("-m", "mypy", "virelo", "main.py"),
+    @("-m", "mypy", "."),
     @("-m", "pytest", "-q")
 )) {
     & $venvPython @arguments
@@ -84,7 +91,7 @@ if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
 
 $releaseInputs = Get-VireloReleaseInputPaths -ProjectRoot $projectRoot
 $frontendRoot = (Resolve-Path "frontend\dist").Path
-$frontendPaths = Get-ChildItem -LiteralPath $frontendRoot -Recurse -File |
+$frontendPaths = Get-ChildItem -LiteralPath $frontendRoot -Recurse -File -Force |
     ForEach-Object { Get-VireloRelativePath -Root $frontendRoot -Path $_.FullName }
 $manifest = [ordered]@{
     schemaVersion = 2

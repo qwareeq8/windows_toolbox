@@ -33,7 +33,7 @@ def test_press_detection_uses_monotonic_time(monkeypatch):
     monotonic = MagicMock(side_effect=[10.0, 10.2])
     monkeypatch.setattr(snap.time, "monotonic", monotonic)
     listener = snap.MultiPressHotkeyListener(_settings())
-    emissions = []
+    emissions: list[bool] = []
     signal_emit = listener.triggered.emit
     if hasattr(signal_emit, "reset_mock"):
         signal_emit.reset_mock()

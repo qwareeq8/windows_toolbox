@@ -9,7 +9,6 @@ $targets = @(
     "frontend\dist",
     "installer\dist",
     ".pytest_cache",
-    ".pytest-tmp",
     ".ruff_cache",
     "htmlcov",
     "virelo.egg-info"

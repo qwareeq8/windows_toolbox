@@ -71,6 +71,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
+        ("LICENSE", "."),
         ("icon.ico", "."),
         ("frontend/dist", "frontend/dist"),
     ],

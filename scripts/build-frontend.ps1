@@ -60,7 +60,7 @@ foreach ($assetPath in $assetPaths) {
         throw "The frontend index references a missing asset: $assetPath."
     }
 }
-$javascript = Get-ChildItem -LiteralPath "frontend\dist" -Recurse -File -Filter "*.js"
+$javascript = Get-ChildItem -LiteralPath "frontend\dist" -Recurse -File -Force -Filter "*.js"
 $versionFound = $javascript | Select-String -SimpleMatch $appVersion -Quiet
 if (-not $versionFound) {
     throw "The release version was not embedded in the frontend JavaScript."

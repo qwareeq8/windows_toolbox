@@ -1,9 +1,32 @@
 """Root conftest: use real native modules when available and stub only absences."""
 
 import importlib
+import os
+import shutil
 import sys
+import tempfile
 import types
+from typing import Any, cast
 from unittest.mock import MagicMock
+
+import pytest
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Give each test process an isolated temporary root on Windows."""
+    if config.option.basetemp is not None or os.environ.get("PYTEST_DEBUG_TEMPROOT"):
+        return
+
+    temp_root = tempfile.mkdtemp(prefix="virelo-pytest-")
+    os.environ["PYTEST_DEBUG_TEMPROOT"] = temp_root
+
+    def cleanup_temp_root() -> None:
+        if os.environ.get("PYTEST_DEBUG_TEMPROOT") == temp_root:
+            os.environ.pop("PYTEST_DEBUG_TEMPROOT", None)
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+    config.add_cleanup(cleanup_temp_root)
+
 
 # ---------------------------------------------------------------------------
 # Stub native modules that are not available in CI / system Python.
@@ -28,7 +51,8 @@ for mod_name in _NATIVE_STUBS:
     try:
         importlib.import_module(mod_name)
     except (ImportError, OSError):
-        stub = types.ModuleType(mod_name)
+        # Optional native-module stubs are populated dynamically for tests.
+        stub = cast(Any, types.ModuleType(mod_name))
         # PySide6.QtCore needs QObject, Signal, Slot for class definitions
         if mod_name == "PySide6.QtCore":
 
@@ -54,7 +78,7 @@ for mod_name in ["win32api", "win32con", "win32gui"]:
     try:
         importlib.import_module(mod_name)
     except (ImportError, OSError):
-        stub = types.ModuleType(mod_name)
+        stub = cast(Any, types.ModuleType(mod_name))
         if mod_name == "win32con":
             # Constants used by win32_helpers.py
             stub.MONITOR_DEFAULTTONEAREST = 2

@@ -23,17 +23,38 @@ if (-not $resolvedTempRoot.StartsWith(
 
 $null = New-Item -ItemType Directory -Path $resolvedTempRoot
 $payloadPath = Join-Path $resolvedTempRoot "payload.txt"
+$hiddenPayloadPath = Join-Path $resolvedTempRoot "hidden-payload.txt"
 $manifestPath = Join-Path $resolvedTempRoot "bundle-files.sha256"
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 try {
     [System.IO.File]::WriteAllText($payloadPath, "original", $utf8NoBom)
+    [System.IO.File]::WriteAllText($hiddenPayloadPath, "hidden", $utf8NoBom)
+    [System.IO.File]::SetAttributes(
+        $hiddenPayloadPath,
+        [System.IO.FileAttributes]::Hidden
+    )
     Write-VireloSha256Manifest -Root $resolvedTempRoot -OutputPath $manifestPath
 
     $failures = @(Test-VireloSha256Manifest -Root $resolvedTempRoot -ManifestPath $manifestPath)
     if ($failures.Count -ne 0) {
         throw "A freshly written checksum manifest failed verification: $($failures -join '; ')."
     }
+    if (-not ([System.IO.File]::ReadAllText($manifestPath) -match 'hidden-payload[.]txt')) {
+        throw "The checksum manifest omitted a hidden payload."
+    }
+
+    $unlistedHiddenPath = Join-Path $resolvedTempRoot "unlisted-hidden.txt"
+    [System.IO.File]::WriteAllText($unlistedHiddenPath, "unlisted", $utf8NoBom)
+    [System.IO.File]::SetAttributes(
+        $unlistedHiddenPath,
+        [System.IO.FileAttributes]::Hidden
+    )
+    $failures = @(Test-VireloSha256Manifest -Root $resolvedTempRoot -ManifestPath $manifestPath)
+    if ($failures -notcontains "Unlisted bundle file: unlisted-hidden.txt") {
+        throw "Checksum verification did not reject an unlisted hidden payload."
+    }
+    Remove-Item -LiteralPath $unlistedHiddenPath -Force
 
     [System.IO.File]::WriteAllText($payloadPath, "tampered", $utf8NoBom)
     $failures = @(Test-VireloSha256Manifest -Root $resolvedTempRoot -ManifestPath $manifestPath)
@@ -65,6 +86,9 @@ try {
     $releaseInputs = @(Get-VireloReleaseInputPaths -ProjectRoot $projectRoot)
     if ($releaseInputs -notcontains "tests/unit/test_release_metadata.py") {
         throw "Python tests are missing from the release input inventory."
+    }
+    if ($releaseInputs -notcontains "LICENSE") {
+        throw "The project license is missing from the release input inventory."
     }
 
     $releaseOutput = Join-Path $resolvedTempRoot "release-output"

@@ -1,10 +1,11 @@
 """Security boundary tests for the embedded web frontend."""
 
 import sys
+from typing import cast
 
 import pytest
 from PySide6.QtCore import QUrl
-from PySide6.QtWebEngineCore import QWebEnginePage
+from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineUrlRequestInfo
 
 from virelo.app import webview
 
@@ -53,24 +54,25 @@ class _NavigationPage:
 def test_internal_error_html_is_allowed_once(monkeypatch):
     """Only the exact one-shot data navigation created for error HTML is allowed."""
     monkeypatch.delenv("VIRELO_DEV", raising=False)
-    page = _NavigationPage()
+    fake_page = _NavigationPage()
+    page = cast(webview.VireloWebPage, fake_page)
     html = "<!doctype html><html><body>Missing frontend.</body></html>"
     encoded = webview._SET_HTML_DATA_PREFIX + QUrl.toPercentEncoding(html).data()
     url = QUrl.fromEncoded(encoded)
 
     webview.VireloWebPage.set_trusted_error_html(page, html)
 
-    assert page._trusted_data_url == encoded
+    assert fake_page._trusted_data_url == encoded
     assert (
         webview.VireloWebPage.acceptNavigationRequest(
             page,
-            page.pending_url,
+            fake_page.pending_url,
             QWebEnginePage.NavigationType.NavigationTypeTyped,
             True,
         )
         is True
     )
-    assert page._trusted_data_url is None
+    assert fake_page._trusted_data_url is None
     assert (
         webview.VireloWebPage.acceptNavigationRequest(
             page,
@@ -94,10 +96,11 @@ def test_error_html_gate_rejects_wrong_navigation_context(
 ):
     """The error-document exception applies only to a typed main-frame load."""
     monkeypatch.delenv("VIRELO_DEV", raising=False)
-    page = _NavigationPage()
+    fake_page = _NavigationPage()
+    page = cast(webview.VireloWebPage, fake_page)
     html = "<p>Internal error.</p>"
     encoded = webview._SET_HTML_DATA_PREFIX + QUrl.toPercentEncoding(html).data()
-    page._trusted_data_url = encoded
+    fake_page._trusted_data_url = encoded
 
     assert (
         webview.VireloWebPage.acceptNavigationRequest(
@@ -108,7 +111,7 @@ def test_error_html_gate_rejects_wrong_navigation_context(
         )
         is False
     )
-    assert page._trusted_data_url is None
+    assert fake_page._trusted_data_url is None
 
 
 class _RequestInfo:
@@ -137,9 +140,14 @@ def test_release_interceptor_blocks_disallowed_requests(monkeypatch):
     )
     allowed = _RequestInfo(QUrl("data:text/plain,Virelo"))
     blocked = _RequestInfo(QUrl("https://example.com/app.js"))
+    interceptor = cast(webview.VireloRequestInterceptor, object())
 
-    webview.VireloRequestInterceptor.interceptRequest(object(), allowed)
-    webview.VireloRequestInterceptor.interceptRequest(object(), blocked)
+    webview.VireloRequestInterceptor.interceptRequest(
+        interceptor, cast(QWebEngineUrlRequestInfo, allowed)
+    )
+    webview.VireloRequestInterceptor.interceptRequest(
+        interceptor, cast(QWebEngineUrlRequestInfo, blocked)
+    )
 
     assert allowed.blocked is False
     assert blocked.blocked is True
