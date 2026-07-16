@@ -42,10 +42,21 @@ define: { __APP_VERSION__: JSON.stringify(version) }
 
 ## Runtime Issues
 
+### A startup shortcut remains after uninstalling Virelo
+
+The machine-wide uninstaller deliberately does not modify any account's per-user files. Before
+uninstalling, turn off **Run at Startup** from Virelo's tray menu in each account that enabled it.
+If Virelo is already uninstalled, remove `Virelo.lnk` from
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup` for that account. Per-user settings,
+logs, and folder-view recovery backups are retained.
+
 ### UAC prompt appears every time the app starts
 
 **Expected behavior.** Virelo requires administrator privileges for global keyboard hooks and
 cross-process window manipulation. The app auto-elevates via `ShellExecuteW("runas", ...)`.
+Approve UAC with the same Windows account. Supplying another administrator account's credentials
+causes Windows to run Virelo under that account, so per-user settings, backups, and Explorer state
+would belong to the credential account; that scenario is not supported.
 
 ### Window cannot be dragged
 
@@ -65,10 +76,37 @@ unsigned `val & 0xFFFF`.
 
 ### Explorer column auto-size not working
 
-**Cause:** Explorer auto-size uses COM automation (`IShellBrowser`, `IFolderView`) which
-requires the Explorer window to be in Details view.
+**Cause:** Explorer auto-size uses COM automation and `IColumnManager`, which requires the
+target Explorer tab to be in Details view. Explorer may also be temporarily unavailable
+during navigation or a shell restart.
 
-**Fix:** Switch the Explorer window to Details view (View menu or Ctrl+Shift+6).
+**Fix:** Switch the Explorer window to Details view through the View menu or press
+`Ctrl+Shift+6`. Leave the folder open briefly so the view can settle. If Explorer was just
+restarted, reopen the folder and try again.
+
+### Explorer auto-size uses unexpected CPU while windows are minimized
+
+**Cause:** Older builds could keep an overdue retry pending and poll Explorer every 5
+milliseconds while a target window was not interactive.
+
+**Fix:** Install or build the audited version. It delays retries for noninteractive windows
+and progressively backs off to a one-second poll while idle. If the problem persists, set
+`VIRELO_DEBUG=1`, reproduce it briefly, and inspect `%LOCALAPPDATA%\Virelo\virelo.log`.
+
+### Restoring folder views after applying Details defaults
+
+The Details-default action intentionally clears existing per-folder view customizations so
+stale ShellBags cannot override the new defaults. It creates a verified backup first.
+
+Open Virelo's Explorer page and select **Restore latest backup**. Recovery deletes the
+current affected keys before writing the fixed-key snapshot, so keys that were originally absent
+are restored as absent. Virelo also creates a pre-restore safety backup. If in-app recovery
+fails, preserve the reported directory under `%LOCALAPPDATA%\Virelo\view-backup-*` and do
+not run another folder-view action until the error is diagnosed.
+
+Do not apply, reset, or restore folder views while Explorer is copying, moving, renaming,
+or deleting files. Virelo does not close Explorer automatically. Restart File Explorer or sign
+out after the action so Windows reloads the changed folder-view state.
 
 ## Smoke Test
 
