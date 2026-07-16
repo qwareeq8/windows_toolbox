@@ -5,7 +5,6 @@ import ctypes.wintypes
 import logging
 import os
 import sys
-from typing import cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from win32com.client import Dispatch
@@ -75,7 +74,7 @@ def create_startup_shortcut():
     script = os.path.abspath(sys.argv[0])
     frozen = bool(getattr(sys, "frozen", False))
     target, args = startup_shortcut_spec(sys.executable, script, frozen)
-    wsh = Dispatch("WScript.Shell")
+    wsh = _ensure_dispatch("WScript.Shell")
     os.makedirs(os.path.dirname(shortcut_path), exist_ok=True)
     shortcut = wsh.CreateShortcut(shortcut_path)
     shortcut.TargetPath = target
@@ -84,19 +83,9 @@ def create_startup_shortcut():
     icon_path = resource_path("icon.ico")
     if os.path.exists(icon_path):
         shortcut.IconLocation = icon_path
-    try:
-        shortcut.Save()
-        if not os.path.isfile(shortcut_path):
-            raise OSError("Windows did not create the startup shortcut.")
-    except Exception:
-        # A failed COM save can leave a partial .lnk behind. Remove it so the
-        # persisted toggle can be reconciled to a definite disabled state.
-        try:
-            if os.path.exists(shortcut_path):
-                os.remove(shortcut_path)
-        except OSError:
-            LOG.exception("Failed to remove a partial startup shortcut.")
-        raise
+    shortcut.Save()
+    if not os.path.isfile(shortcut_path):
+        raise OSError("Windows did not create the startup shortcut.")
 
 
 def remove_startup_shortcut():
@@ -110,6 +99,81 @@ def remove_startup_shortcut():
 def startup_shortcut_exists() -> bool:
     """Return whether the per-user launch-at-login shortcut exists."""
     return os.path.isfile(get_startup_shortcut_path())
+
+
+def read_startup_shortcut() -> bytes | None:
+    """Return the exact shortcut contents for transactional rollback."""
+    shortcut_path = get_startup_shortcut_path()
+    if not os.path.exists(shortcut_path):
+        return None
+    if not os.path.isfile(shortcut_path):
+        raise OSError("The startup shortcut path is not a regular file.")
+    with open(shortcut_path, "rb") as shortcut_file:
+        return shortcut_file.read()
+
+
+def restore_startup_shortcut(contents: bytes | None) -> None:
+    """Restore an exact shortcut snapshot, or restore its prior absence."""
+    if contents is None:
+        remove_startup_shortcut()
+        return
+    shortcut_path = get_startup_shortcut_path()
+    os.makedirs(os.path.dirname(shortcut_path), exist_ok=True)
+    rollback_path = f"{shortcut_path}.virelo-rollback"
+    try:
+        with open(rollback_path, "wb") as shortcut_file:
+            shortcut_file.write(contents)
+            shortcut_file.flush()
+            os.fsync(shortcut_file.fileno())
+        os.replace(rollback_path, shortcut_path)
+    finally:
+        if os.path.exists(rollback_path):
+            os.remove(rollback_path)
+    if read_startup_shortcut() != contents:
+        raise OSError("Windows did not restore the prior startup shortcut.")
+
+
+def startup_shortcut_matches_current_launch() -> bool:
+    """Return whether the shortcut launches this exact source or executable."""
+    shortcut_path = get_startup_shortcut_path()
+    if not os.path.isfile(shortcut_path):
+        return False
+    script = os.path.abspath(sys.argv[0])
+    frozen = bool(getattr(sys, "frozen", False))
+    expected_target, expected_args = startup_shortcut_spec(sys.executable, script, frozen)
+    expected_working_directory = os.path.dirname(expected_target if frozen else script)
+    try:
+        shortcut = _ensure_dispatch("WScript.Shell").CreateShortcut(shortcut_path)
+        actual_target = str(shortcut.TargetPath or "")
+        actual_args = str(shortcut.Arguments or "").strip()
+        actual_working_directory = str(shortcut.WorkingDirectory or "")
+    except Exception as error:
+        raise OSError("Windows could not inspect the startup shortcut.") from error
+
+    def normalized_path(path: str) -> str:
+        return os.path.normcase(os.path.abspath(os.path.expandvars(path.strip())))
+
+    return (
+        normalized_path(actual_target) == normalized_path(expected_target)
+        and actual_args == expected_args.strip()
+        and normalized_path(actual_working_directory) == normalized_path(expected_working_directory)
+    )
+
+
+def sync_startup_shortcut_state(settings: Settings) -> bool:
+    """Reflect the actual launch shortcut in memory without changing it."""
+    configured = bool(settings.run_at_startup)
+    try:
+        actual = startup_shortcut_matches_current_launch()
+    except Exception:
+        LOG.exception("Checking the startup shortcut during initialization failed.")
+        return configured
+    if actual != configured:
+        LOG.warning(
+            "The stored launch-at-login setting did not match the current startup shortcut."
+        )
+        settings.run_at_startup = actual
+    return actual
 
 
 # ------------------------------------------------------------------------------
@@ -140,6 +204,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings.ex_auto_size = bool(getattr(self.settings, "ex_auto_size", False))
         self.settings.game_mode_enabled = bool(self.settings.game_mode_enabled)
         self.settings.run_at_startup = bool(self.settings.run_at_startup)
+        sync_startup_shortcut_state(self.settings)
         self.settings.theme = normalize_theme_mode(str(self.settings.theme), DEFAULTS["theme"])
 
         self._capture_guard = CaptureGuard()
@@ -336,7 +401,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return True
 
         try:
-            result = self._settings_state.commit_draft()
+            self._bridge._commit_pending_settings()
         except Exception as exc:
             LOG.exception("Saving settings before quit failed")
             QtWidgets.QMessageBox.critical(
@@ -345,7 +410,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Virelo could not save the settings and will remain open.\n\n{exc}",
             )
             return False
-        self._bridge._apply_side_effects(result.get("applied", {}))
         self._bridge.settings_changed.emit(self._settings_state.get_json())
         self._bridge.dirty_changed.emit(False)
         return True
@@ -483,23 +547,6 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception:
             self._bridge.snap_status.emit("Could not snap the active window.", 2000)
 
-    def _reset_defaults(self):
-        """Reset all settings to defaults (called from bridge.reset_defaults)."""
-        defaults = DEFAULTS.copy()
-        for key, val in defaults.items():
-            setattr(self.settings, key, val)
-        self.settings.save()
-        self.snap_enabled = bool(defaults["enable_snap"])
-        self._update_snap_enabled_state()
-        self._update_explorer_autosize_thread()
-        self._apply_theme_mode(str(defaults["theme"]))
-        if hasattr(self, "_hotkey_listener"):
-            self._hotkey_listener.update_binding(str(defaults["snap_key"]))
-            self._hotkey_listener.update_restore_key(str(defaults["restore_key"]))
-            self._hotkey_listener.update_press_limit(cast(int, defaults["snap_presses"]))
-        self._bridge.settings_changed.emit(self._settings_state.get_json())
-        self._bridge.snap_status.emit("Defaults loaded.", 3000)
-
     def _show_help(self):
         QtWidgets.QMessageBox.information(
             self,
@@ -541,12 +588,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _toggle_minimize_on_exit(self):
         checked = self.action_minimize_on_exit.isChecked()
         try:
-            result = self._settings_state.persist_immediate({"minimize_to_tray": checked})
+            result = self._bridge.persist_immediate_settings({"minimize_to_tray": checked})
         except Exception as exc:
             LOG.exception("Saving the minimize-to-tray setting failed")
             result = {"ok": False, "error": str(exc)}
         if result.get("ok"):
-            self._bridge._apply_side_effects(result.get("applied", {}))
             self._bridge.settings_changed.emit(self._settings_state.get_json())
             self._bridge.dirty_changed.emit(self._settings_state.has_draft)
         else:
@@ -560,12 +606,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _toggle_run_at_startup(self):
         checked = self.action_run_at_startup.isChecked()
         try:
-            result = self._settings_state.persist_immediate({"run_at_startup": checked})
+            result = self._bridge.persist_immediate_settings({"run_at_startup": checked})
         except Exception as exc:
             LOG.exception("Saving the startup setting failed")
             result = {"ok": False, "error": str(exc)}
         if result.get("ok"):
-            self._bridge._apply_side_effects(result.get("applied", {}))
             self._bridge.settings_changed.emit(self._settings_state.get_json())
             self._bridge.dirty_changed.emit(self._settings_state.has_draft)
         else:

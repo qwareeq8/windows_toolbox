@@ -196,13 +196,13 @@ describe("ExplorerPage default folder view", () => {
   it("Surfaces a backend error through showStatus.", async () => {
     const app = makeApp();
     app.bridge.apply_details_view = vi.fn((cb) =>
-      cb(JSON.stringify({ ok: false, error: "Explorer restart failed." })),
+      cb(JSON.stringify({ ok: false, error: "Folder view update failed." })),
     );
     renderWithTheme(<ExplorerPage app={app} />);
     const user = userEvent.setup();
     await user.click(screen.getByText("Make Details the default"));
     await user.click(screen.getByRole("button", { name: "Apply Details default" }));
-    expect(app.showStatus).toHaveBeenCalledWith("Explorer restart failed.", 5000);
+    expect(app.showStatus).toHaveBeenCalledWith("Folder view update failed.", 5000);
     expect(app.setViewsTask).toHaveBeenLastCalledWith(null);
   });
 

@@ -218,7 +218,7 @@ describe("Bridge-backed application behavior", () => {
     expect(bridge.apply_details_view).toHaveBeenCalledOnce();
 
     const onViewsStatus = bridge.views_status.connect.mock.calls[0][0];
-    act(() => onViewsStatus("Explorer is restarting.", 3000));
+    act(() => onViewsStatus("Folder defaults were updated.", 3000));
     expect(screen.getByRole("button", { name: "Working..." })).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -309,5 +309,30 @@ describe("throttled draft writes versus save, discard, and reset", () => {
       vi.advanceTimersByTime(1000);
     });
     expect(bridge.save_settings).toHaveBeenCalledTimes(1);
+  });
+
+  it("Keeps reset side-effect warnings visible.", async () => {
+    const bridge = makeBridge();
+    bridge.reset_defaults = vi.fn((cb) =>
+      cb(
+        JSON.stringify({
+          ok: true,
+          data: {},
+          warnings: ["Explorer column auto-size"],
+        }),
+      ),
+    );
+    renderApp(bridge);
+
+    fireEvent.click(screen.getByText("General"));
+    fireEvent.click(screen.getByText("Reset"));
+    const resetButtons = screen.getAllByText("Reset");
+    fireEvent.click(resetButtons[resetButtons.length - 1]);
+
+    expect(
+      await screen.findByText(
+        "Settings were reset, but these components could not be updated: Explorer column auto-size.",
+      ),
+    ).toBeInTheDocument();
   });
 });

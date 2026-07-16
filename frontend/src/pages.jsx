@@ -337,7 +337,7 @@ function SnapPage({ app }) {
       <Card>
         <Row
           label="Enable snap"
-          description="Resize the foreground window with a keyboard shortcut."
+          description="Center the foreground window and resize it when the window supports resizing."
         >
           <Toggle
             label="Enable snap"

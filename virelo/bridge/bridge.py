@@ -156,8 +156,12 @@ class VireloBridge(QObject):
             new_settings = self._state.get_all()
             self.settings_changed.emit(self._state.get_json())
             self.dirty_changed.emit(False)
-            self.snap_status.emit("Defaults loaded.", 3000)
-            return json.dumps({"ok": True, "data": new_settings})
+            response: dict[str, Any] = {"ok": True, "data": new_settings}
+            if result.get("warnings"):
+                response["warnings"] = result["warnings"]
+            else:
+                self.snap_status.emit("Defaults loaded.", 3000)
+            return json.dumps(response)
         except Exception as e:
             LOG.exception("reset_defaults failed")
             self._state.discard_draft()
@@ -413,74 +417,245 @@ class VireloBridge(QObject):
 
     # --- Internal helpers ---
 
-    def _apply_side_effects(self, applied: dict):
-        """Apply business logic side effects after settings are committed."""
+    def _prepare_external_side_effects(
+        self, applied: dict[str, Any]
+    ) -> tuple[set[str], list[tuple[str, Callable[[], Any]]]]:
+        """Apply fallible external changes before settings are persisted."""
         if not self._main_window:
-            return
+            return set(), []
+
         mw = self._main_window
+        prepared: set[str] = set()
+        rollbacks: list[tuple[str, Callable[[], Any]]] = []
 
-        if "enable_snap" in applied:
-            mw.snap_enabled = bool(applied["enable_snap"])
-            mw._update_snap_enabled_state()
-
-        if "ex_auto_size" in applied:
-            mw._update_explorer_autosize_thread()
-
-        if "snap_presses" in applied and hasattr(mw, "_hotkey_listener"):
-            mw._hotkey_listener.update_press_limit(applied["snap_presses"])
-
-        if "snap_key" in applied and hasattr(mw, "_hotkey_listener"):
-            if mw._hotkey_listener.update_binding(applied["snap_key"]) is False:
-                self.snap_status.emit(
-                    "The setting was saved, but the global snap-key hook could not be updated.",
-                    6000,
-                )
-
-        if "restore_key" in applied and hasattr(mw, "_hotkey_listener"):
-            mw._hotkey_listener.update_restore_key(applied["restore_key"])
-
-        if "theme" in applied:
-            mw._apply_theme_mode(applied["theme"])
-
-        if "run_at_startup" in applied:
-            desired_startup = bool(applied["run_at_startup"])
+        def prepare(
+            name: str,
+            action: Callable[[], Any],
+            rollback: Callable[[], Any],
+        ) -> None:
             try:
+                result = action()
+                if result is False:
+                    raise RuntimeError(f"Applying {name} returned failure.")
+            except Exception as apply_error:
+                try:
+                    rollback_result = rollback()
+                    if rollback_result is False:
+                        raise RuntimeError(f"Rolling back {name} returned failure.")
+                except Exception as rollback_error:
+                    raise RuntimeError(
+                        f"Applying {name} failed, and restoring its prior state also failed: "
+                        f"{rollback_error}"
+                    ) from apply_error
+                raise
+            rollbacks.append((name, rollback))
+
+        try:
+            if "snap_key" in applied and hasattr(mw, "_hotkey_listener"):
+                listener = mw._hotkey_listener
+                previous_key = str(listener.current_key)
+                next_key = str(applied["snap_key"])
+                if next_key != previous_key:
+                    prepare(
+                        "the global snap-key hook",
+                        lambda: listener.update_binding(next_key),
+                        lambda: listener.update_binding(previous_key),
+                    )
+                prepared.add("snap_key")
+
+            if "run_at_startup" in applied:
                 from virelo.app.window import (
                     create_startup_shortcut,
+                    read_startup_shortcut,
                     remove_startup_shortcut,
-                    startup_shortcut_exists,
+                    restore_startup_shortcut,
+                    startup_shortcut_matches_current_launch,
                 )
 
-                if desired_startup:
-                    create_startup_shortcut()
-                else:
-                    remove_startup_shortcut()
-            except Exception as shortcut_error:
-                LOG.exception("Startup shortcut error")
-                actual_startup = startup_shortcut_exists()
-                try:
-                    correction = self._state.persist_immediate({"run_at_startup": actual_startup})
-                    if not correction.get("ok"):
-                        raise OSError(str(correction.get("error", "Unknown settings error.")))
-                    applied["run_at_startup"] = actual_startup
-                    state_label = "enabled" if actual_startup else "disabled"
-                    self.snap_status.emit(
-                        "Could not update the startup shortcut, so launch at login "
-                        f"remains {state_label}: {shortcut_error}",
-                        7000,
+                previous_shortcut = read_startup_shortcut()
+                next_startup = bool(applied["run_at_startup"])
+                shortcut_is_current = startup_shortcut_matches_current_launch()
+                mutation_required = (
+                    not shortcut_is_current if next_startup else previous_shortcut is not None
+                )
+                if mutation_required:
+                    prepare(
+                        "the startup shortcut",
+                        create_startup_shortcut if next_startup else remove_startup_shortcut,
+                        lambda: restore_startup_shortcut(previous_shortcut),
                     )
-                except Exception as correction_error:
-                    LOG.exception("Reconciling the startup setting failed")
-                    self.snap_status.emit(
-                        "Could not update the startup shortcut or reconcile its setting: "
-                        f"{correction_error}",
-                        7000,
-                    )
+                prepared.add("run_at_startup")
+        except Exception as prepare_error:
+            try:
+                self._rollback_external_side_effects(rollbacks)
+            except Exception as rollback_error:
+                raise RuntimeError(
+                    "Preparing settings failed, and restoring an earlier external change "
+                    f"also failed: {rollback_error}"
+                ) from prepare_error
+            raise
+
+        return prepared, rollbacks
+
+    @staticmethod
+    def _rollback_external_side_effects(
+        rollbacks: list[tuple[str, Callable[[], Any]]],
+    ) -> None:
+        """Restore prepared external changes in reverse application order."""
+        failures: list[str] = []
+        for name, rollback in reversed(rollbacks):
+            try:
+                result = rollback()
+                if result is False:
+                    raise RuntimeError("The rollback returned failure.")
+            except Exception as error:
+                LOG.exception("Rolling back %s failed", name)
+                failures.append(f"{name}: {error}")
+        if failures:
+            raise RuntimeError("; ".join(failures))
+
+    def _apply_remaining_side_effects(
+        self, applied: dict[str, Any], prepared: set[str]
+    ) -> list[str]:
+        """Apply in-process changes after a successful settings save."""
+        failures = self._apply_side_effects(applied, already_applied=prepared)
+        if failures:
+            self.snap_status.emit(
+                "The settings were saved, but these components could not be updated: "
+                f"{', '.join(failures)}.",
+                6000,
+            )
+        return failures
+
+    def _commit_pending_settings(self) -> dict[str, Any]:
+        """Commit the draft without persisting impossible external state."""
+        applied = self._state.pending_changes
+        prepared, rollbacks = self._prepare_external_side_effects(applied)
+        try:
+            result = self._state.commit_draft()
+        except Exception as persistence_error:
+            try:
+                self._rollback_external_side_effects(rollbacks)
+            except Exception as rollback_error:
+                raise RuntimeError(
+                    "Saving settings failed, and restoring a prepared external change also "
+                    f"failed: {rollback_error}"
+                ) from persistence_error
+            raise
+        failures = self._apply_remaining_side_effects(result.get("applied", {}), prepared)
+        if failures:
+            result["warnings"] = failures
+        return result
+
+    def persist_immediate_settings(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Persist a tray setting while preserving unrelated draft changes."""
+        validation = self._state.validate_changes(data)
+        if not validation.get("ok"):
+            return validation
+        applied = dict(validation["applied"])
+        prepared, rollbacks = self._prepare_external_side_effects(applied)
+        try:
+            result = self._state.persist_immediate(applied)
+        except Exception as persistence_error:
+            try:
+                self._rollback_external_side_effects(rollbacks)
+            except Exception as rollback_error:
+                raise RuntimeError(
+                    "Saving settings failed, and restoring a prepared external change also "
+                    f"failed: {rollback_error}"
+                ) from persistence_error
+            raise
+        if not result.get("ok"):
+            self._rollback_external_side_effects(rollbacks)
+            return result
+        failures = self._apply_remaining_side_effects(result.get("applied", {}), prepared)
+        if failures:
+            result["warnings"] = failures
+        return result
+
+    def _apply_side_effects(
+        self,
+        applied: dict[str, Any],
+        already_applied: set[str] | None = None,
+    ) -> list[str]:
+        """Apply each post-save side effect independently and report failures."""
+        if not self._main_window:
+            return []
+        mw = self._main_window
+        already_applied = already_applied or set()
+        failures: list[str] = []
+
+        def apply(name: str, action: Callable[[], Any]) -> None:
+            try:
+                result = action()
+                if result is False:
+                    raise RuntimeError("The operation returned failure.")
+            except Exception:
+                LOG.exception("Updating %s after saving settings failed", name)
+                failures.append(name)
+
+        if "enable_snap" in applied:
+
+            def update_snap_state() -> None:
+                mw.snap_enabled = bool(applied["enable_snap"])
+                mw._update_snap_enabled_state()
+
+            apply("window snap", update_snap_state)
+
+        if "ex_auto_size" in applied:
+            apply("Explorer column auto-size", mw._update_explorer_autosize_thread)
+
+        if "snap_presses" in applied and hasattr(mw, "_hotkey_listener"):
+            apply(
+                "snap press count",
+                lambda: mw._hotkey_listener.update_press_limit(applied["snap_presses"]),
+            )
+
+        if (
+            "snap_key" in applied
+            and "snap_key" not in already_applied
+            and hasattr(mw, "_hotkey_listener")
+        ):
+            apply(
+                "global snap-key hook",
+                lambda: mw._hotkey_listener.update_binding(applied["snap_key"]),
+            )
+
+        if "restore_key" in applied and hasattr(mw, "_hotkey_listener"):
+            apply(
+                "restore key",
+                lambda: mw._hotkey_listener.update_restore_key(applied["restore_key"]),
+            )
+
+        if "theme" in applied:
+            apply("theme", lambda: mw._apply_theme_mode(applied["theme"]))
+
+        if "run_at_startup" in applied and "run_at_startup" not in already_applied:
+            from virelo.app.window import create_startup_shortcut, remove_startup_shortcut
+
+            apply(
+                "startup shortcut",
+                create_startup_shortcut if applied["run_at_startup"] else remove_startup_shortcut,
+            )
 
         if "minimize_to_tray" in applied:
-            mw.minimize_to_tray_on_exit = bool(applied["minimize_to_tray"])
+            apply(
+                "minimize-to-tray state",
+                lambda: setattr(
+                    mw,
+                    "minimize_to_tray_on_exit",
+                    bool(applied["minimize_to_tray"]),
+                ),
+            )
 
         if "run_at_startup" in applied:
-            mw.action_run_at_startup.setChecked(bool(self._state.get_all()["run_at_startup"]))
+            apply(
+                "startup tray checkmark",
+                lambda: mw.action_run_at_startup.setChecked(bool(applied["run_at_startup"])),
+            )
         if "minimize_to_tray" in applied:
-            mw.action_minimize_on_exit.setChecked(bool(applied["minimize_to_tray"]))
+            apply(
+                "minimize-to-tray checkmark",
+                lambda: mw.action_minimize_on_exit.setChecked(bool(applied["minimize_to_tray"])),
+            )
+        return failures
