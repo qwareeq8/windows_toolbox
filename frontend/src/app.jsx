@@ -629,7 +629,14 @@ export default function VireloApp({ bridge }) {
         const r = JSON.parse(json);
         if (r.ok && r.data) {
           setState(bridgeToState(r.data));
-          showStatus("Settings were reset to their defaults.", 3000);
+          if (Array.isArray(r.warnings) && r.warnings.length > 0) {
+            showStatus(
+              `Settings were reset, but these components could not be updated: ${r.warnings.join(", ")}.`,
+              6000,
+            );
+          } else {
+            showStatus("Settings were reset to their defaults.", 3000);
+          }
         } else {
           showStatus(`Reset failed: ${r.error || "unknown error"}`, 5000);
         }

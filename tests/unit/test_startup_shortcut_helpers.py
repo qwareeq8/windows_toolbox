@@ -70,3 +70,25 @@ def test_failed_shortcut_save_does_not_delete_a_preexisting_link(tmp_path, monke
         window.create_startup_shortcut()
 
     assert path.read_bytes() == original
+
+
+def test_initial_state_reflects_a_missing_or_stale_shortcut(monkeypatch):
+    """The tray must not report launch at login when the link is invalid."""
+    settings = SimpleNamespace(run_at_startup=True)
+    monkeypatch.setattr(window, "startup_shortcut_matches_current_launch", lambda: False)
+
+    assert window.sync_startup_shortcut_state(settings) is False
+    assert settings.run_at_startup is False
+
+
+def test_initial_state_preserves_configuration_when_inspection_fails(monkeypatch):
+    """A transient COM read failure must not silently disable launch at login."""
+    settings = SimpleNamespace(run_at_startup=True)
+    monkeypatch.setattr(
+        window,
+        "startup_shortcut_matches_current_launch",
+        MagicMock(side_effect=OSError("COM unavailable.")),
+    )
+
+    assert window.sync_startup_shortcut_state(settings) is True
+    assert settings.run_at_startup is True

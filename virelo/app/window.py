@@ -5,6 +5,7 @@ import ctypes.wintypes
 import logging
 import os
 import sys
+from typing import Protocol
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from win32com.client import Dispatch
@@ -32,6 +33,12 @@ APP_TITLE = APP_NAME
 # Window chrome constants for WM_NCHITTEST hit-zone classification
 TITLE_BAR_HEIGHT = 35  # Frontend TitleBar: 34px height + 1px borderBottom
 CONTROLS_WIDTH = 308  # Search and window controls, plus a 6-pixel safety buffer.
+
+
+class StartupSettings(Protocol):
+    """Minimal settings surface needed for launch-at-login reconciliation."""
+
+    run_at_startup: bool
 
 
 # ------------------------------------------------------------------------------
@@ -160,7 +167,7 @@ def startup_shortcut_matches_current_launch() -> bool:
     )
 
 
-def sync_startup_shortcut_state(settings: Settings) -> bool:
+def sync_startup_shortcut_state(settings: StartupSettings) -> bool:
     """Reflect the actual launch shortcut in memory without changing it."""
     configured = bool(settings.run_at_startup)
     try:

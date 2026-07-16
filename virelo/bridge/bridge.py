@@ -474,7 +474,15 @@ class VireloBridge(QObject):
 
                 previous_shortcut = read_startup_shortcut()
                 next_startup = bool(applied["run_at_startup"])
-                shortcut_is_current = startup_shortcut_matches_current_launch()
+                shortcut_is_current = False
+                if next_startup:
+                    try:
+                        shortcut_is_current = startup_shortcut_matches_current_launch()
+                    except OSError:
+                        LOG.warning(
+                            "The existing startup shortcut could not be validated and will "
+                            "be replaced."
+                        )
                 mutation_required = (
                     not shortcut_is_current if next_startup else previous_shortcut is not None
                 )

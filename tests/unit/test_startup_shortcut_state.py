@@ -207,6 +207,29 @@ def test_stale_startup_shortcut_is_refreshed(settings_state, mock_settings, monk
     restore.assert_not_called()
 
 
+def test_broken_startup_shortcut_can_still_be_disabled(settings_state, mock_settings, monkeypatch):
+    """Disabling must remove an unreadable link without trying to inspect it."""
+    mock_settings.run_at_startup = True
+    bridge, _, _ = _bridge_with_window(settings_state)
+    remove = MagicMock()
+    match = MagicMock(side_effect=OSError("The link is corrupt."))
+    restore = MagicMock()
+    monkeypatch.setattr("virelo.app.window.read_startup_shortcut", lambda: b"corrupt link")
+    monkeypatch.setattr("virelo.app.window.startup_shortcut_matches_current_launch", match)
+    monkeypatch.setattr("virelo.app.window.restore_startup_shortcut", restore)
+    monkeypatch.setattr("virelo.app.window.create_startup_shortcut", MagicMock())
+    monkeypatch.setattr("virelo.app.window.remove_startup_shortcut", remove)
+    settings_state.apply_draft({"run_at_startup": False})
+
+    result = json.loads(bridge.commit_draft())
+
+    assert result["ok"] is True
+    assert mock_settings.run_at_startup is False
+    match.assert_not_called()
+    remove.assert_called_once_with()
+    restore.assert_not_called()
+
+
 def test_later_side_effects_continue_after_one_component_fails(settings_state):
     """One post-save failure must not prevent unrelated UI updates."""
     bridge, window, _ = _bridge_with_window(settings_state)
@@ -228,3 +251,20 @@ def test_later_side_effects_continue_after_one_component_fails(settings_state):
     window.action_minimize_on_exit.setChecked.assert_called_once_with(False)
     assert messages
     assert "Explorer column auto-size" in messages[-1][0]
+
+
+def test_reset_returns_component_warnings_without_hiding_them(settings_state, monkeypatch):
+    """Reset must not replace a post-save warning with a success message."""
+    bridge, window, _ = _bridge_with_window(settings_state)
+    _mock_shortcut_state(monkeypatch, None)
+    window._update_explorer_autosize_thread.side_effect = OSError("Worker unavailable.")
+    messages: list[tuple[str, int]] = []
+    bridge.snap_status.connect(lambda message, timeout: messages.append((message, timeout)))
+
+    result = json.loads(bridge.reset_defaults())
+
+    assert result["ok"] is True
+    assert result["warnings"] == ["Explorer column auto-size"]
+    assert messages
+    assert "Explorer column auto-size" in messages[-1][0]
+    assert all(message != "Defaults loaded." for message, _ in messages)
