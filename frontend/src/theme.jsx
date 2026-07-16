@@ -46,7 +46,7 @@ const LIGHT = {
   borderHi: "#D9D4CA",
   text: "#1C1A16",
   textDim: "#6C6760",
-  textMuted: "#9A948B",
+  textMuted: "#716B63",
   hover: "rgba(0,0,0,0.04)",
   track: "#E3DED4",
   shadow: "0 1px 1px rgba(0,0,0,0.02)",
@@ -62,7 +62,7 @@ const DARK = {
   borderHi: "rgba(255,255,255,0.12)",
   text: "#ECECEE",
   textDim: "#9B9BA3",
-  textMuted: "#6B6B74",
+  textMuted: "#8D8D96",
   hover: "rgba(255,255,255,0.05)",
   track: "rgba(255,255,255,0.08)",
   shadow: "0 1px 1px rgba(0,0,0,0.3)",
@@ -93,9 +93,9 @@ const DENSITIES = {
   },
 };
 
-const FONT =
-  '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
-const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+const FONT = 'Arial, Helvetica, "Helvetica Neue", "Segoe UI", system-ui, sans-serif';
+const MONO =
+  '"Latin Modern Mono", "Source Code Pro", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace';
 
 const ThemeCtx = React.createContext(null);
 
@@ -118,10 +118,7 @@ function ThemeProvider({ tweaks, setTweaks, children }) {
       isDark: tweaks.theme === "dark",
     };
   }, [tweaks.theme, tweaks.accent, tweaks.density, tweaks.radius]);
-  const api = React.useMemo(
-    () => ({ tokens, tweaks, setTweaks }),
-    [tokens, tweaks, setTweaks],
-  );
+  const api = React.useMemo(() => ({ tokens, tweaks, setTweaks }), [tokens, tweaks, setTweaks]);
   return <ThemeCtx.Provider value={api}>{children}</ThemeCtx.Provider>;
 }
 
@@ -132,14 +129,4 @@ function useTokens() {
   return React.useContext(ThemeCtx).tokens;
 }
 
-export {
-  ThemeProvider,
-  useTheme,
-  useTokens,
-  ACCENTS,
-  LIGHT,
-  DARK,
-  DENSITIES,
-  FONT,
-  MONO,
-};
+export { ThemeProvider, useTheme, useTokens, ACCENTS, LIGHT, DARK, DENSITIES, FONT, MONO };

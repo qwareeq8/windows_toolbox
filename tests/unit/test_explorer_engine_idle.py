@@ -6,8 +6,8 @@ from virelo.workers.explorer import ExplorerAutosizeEngine
 def _make_engine(tabs_fn):
     return ExplorerAutosizeEngine(
         tabs_fn,
-        lambda hwnd, target_path: (True, "com", False),
-        lambda hwnd, target_path: (True, "com", False),
+        lambda hwnd, tab_id, target_path: (True, "com", False),
+        lambda hwnd, tab_id, target_path: (True, "com", False),
         lambda hwnd: True,
     )
 
@@ -26,7 +26,7 @@ def test_idle_backoff_decays_without_activity():
 
 def test_activity_resets_backoff():
     """A window-set change restores the fast poll interval."""
-    tabs = []
+    tabs: list[tuple[int, int, str, int]] = []
     engine = _make_engine(lambda: list(tabs))
     t = 1000.0
     engine.step(t)

@@ -10,7 +10,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsInlineLimit: 100000,
-    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: undefined,

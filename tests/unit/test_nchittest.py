@@ -44,7 +44,7 @@ def signed_short(val):
 # ---------------------------------------------------------------------------
 
 
-def classify_hit(pos_x, pos_y, width, height, border=4, title_bar_height=35, controls_width=60):
+def classify_hit(pos_x, pos_y, width, height, border=4, title_bar_height=35, controls_width=308):
     """Classify a window-relative position into an NCHITTEST result code.
 
     Mirrors the priority logic in MainWindow.nativeEvent:
@@ -122,7 +122,7 @@ class TestSignedShort:
 # ===========================================================================
 # Tests: classify_hit (hit-zone classification)
 # ===========================================================================
-# Standard window: 1000x620, border=4, title_bar_height=35, controls_width=60
+# Standard window: 1000x620, border=4, title_bar_height=35, controls_width=308
 
 
 class TestClassifyHit:
@@ -169,7 +169,7 @@ class TestClassifyHit:
         assert classify_hit(500, 618, 1000, 620) == HTBOTTOM
 
     def test_controls_area_not_htcaption(self):
-        """Controls area (x >= 940) does NOT return HTCAPTION."""
+        """Interactive title-bar area does not return HTCAPTION."""
         assert classify_hit(960, 10, 1000, 620) == 0
 
     def test_below_title_bar_falls_through(self):
@@ -177,8 +177,8 @@ class TestClassifyHit:
         assert classify_hit(500, 100, 1000, 620) == 0
 
     def test_just_before_controls_is_htcaption(self):
-        """Position just before controls area (x=939) returns HTCAPTION."""
-        assert classify_hit(939, 10, 1000, 620) == HTCAPTION
+        """Position just before the interactive area returns HTCAPTION."""
+        assert classify_hit(691, 10, 1000, 620) == HTCAPTION
 
     def test_left_border_takes_priority_over_title_bar(self):
         """Left border zone takes priority over title bar (pos_x <= BORDER)."""
@@ -186,8 +186,8 @@ class TestClassifyHit:
         assert classify_hit(3, 10, 1000, 620) == HTLEFT
 
     def test_controls_boundary_exact(self):
-        """Exact controls boundary (x=940 = 1000-60) returns 0 (in controls)."""
-        assert classify_hit(940, 10, 1000, 620) == 0
+        """Exact controls boundary (x=692 = 1000-308) is interactive."""
+        assert classify_hit(692, 10, 1000, 620) == 0
 
     def test_title_bar_boundary_exact(self):
         """Exact title bar boundary (y=35) falls through (not < 35)."""

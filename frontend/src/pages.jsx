@@ -13,6 +13,7 @@ import {
   Stepper,
   Slider,
   Kbd,
+  Modal,
 } from "./primitives.jsx";
 import { Icon } from "./icons.jsx";
 
@@ -40,7 +41,65 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`;
 
-function KeyCapture({ value, target, bridge }) {
+function ConfirmDialog({
+  open,
+  onClose,
+  title,
+  description,
+  confirmLabel,
+  confirmVariant,
+  onConfirm,
+}) {
+  const t = useTokens();
+  const cancelRef = React.useRef(null);
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      initialFocusRef={cancelRef}
+    >
+      <div style={{ padding: `${t.cardPad + 4}px ${t.cardPad}px` }}>
+        <h2
+          id={titleId}
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: t.text,
+            margin: "0 0 8px",
+          }}
+        >
+          {title}
+        </h2>
+        <div
+          id={descriptionId}
+          style={{
+            fontSize: 13,
+            color: t.textDim,
+            lineHeight: 1.5,
+            marginBottom: 20,
+          }}
+        >
+          {description}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button ref={cancelRef} variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant={confirmVariant} onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function KeyCapture({ value, target, bridge, label, showStatus }) {
   const t = useTokens();
   const [capturing, setCapturing] = React.useState(false);
   const btnRef = React.useRef(null);
@@ -87,13 +146,32 @@ function KeyCapture({ value, target, bridge }) {
   const handleClick = () => {
     if (capturing) return;
     setCapturing(true);
-    bridge.capture_key(target, () => {});
+    bridge.capture_key(target, (result) => {
+      try {
+        const parsed = JSON.parse(result);
+        if (!parsed.ok) {
+          setCapturing(false);
+          showStatus?.(`Key capture failed: ${parsed.error}`, 5000);
+        }
+      } catch (error) {
+        console.error("[capture] Failed to parse capture_key result:", error);
+        setCapturing(false);
+        showStatus?.("Key capture failed: invalid response from the backend.", 5000);
+      }
+    });
   };
 
   return (
     <button
+      type="button"
       ref={btnRef}
       onClick={handleClick}
+      aria-label={
+        capturing
+          ? `${label}. Press a key, or press Escape to cancel.`
+          : `${label}. Current key: ${value}.`
+      }
+      aria-pressed={capturing}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -136,11 +214,8 @@ function MonitorPreview({ width, height }) {
   // the accent so the preview reflects the user's choice.
   const darkAccents = ["slate"];
   const { tweaks } = useTheme();
-  const rectColor =
-    !t.isDark && darkAccents.includes(tweaks.accent) ? "#8EC4FF" : t.accent;
+  const rectColor = !t.isDark && darkAccents.includes(tweaks.accent) ? "#8EC4FF" : t.accent;
   const monitorBg = t.isDark ? "#0C0C0E" : "#3B3833";
-  const labelOutside = true; // always above the monitor — more consistent
-
   return (
     <div
       style={{
@@ -180,6 +255,7 @@ function MonitorPreview({ width, height }) {
           }}
         >
           <svg
+            aria-hidden="true"
             width={mW}
             height={mH}
             style={{
@@ -190,12 +266,7 @@ function MonitorPreview({ width, height }) {
             }}
           >
             <defs>
-              <pattern
-                id="mp-grid"
-                width="20"
-                height="20"
-                patternUnits="userSpaceOnUse"
-              >
+              <pattern id="mp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
                 <path
                   d="M 20 0 L 0 0 0 20"
                   fill="none"
@@ -269,19 +340,13 @@ function SnapPage({ app }) {
           description="Resize the foreground window with a keyboard shortcut."
         >
           <Toggle
+            label="Enable snap"
             on={app.snapEnabled}
             onChange={(v) => app.set({ snapEnabled: v })}
           />
         </Row>
-        <Row
-          label="Game mode"
-          description="Skip snapping while a fullscreen app is in focus."
-          last
-        >
-          <Toggle
-            on={app.gameMode}
-            onChange={(v) => app.set({ gameMode: v })}
-          />
+        <Row label="Game mode" description="Skip snapping while a fullscreen app is in focus." last>
+          <Toggle label="Game mode" on={app.gameMode} onChange={(v) => app.set({ gameMode: v })} />
         </Row>
       </Card>
 
@@ -290,20 +355,26 @@ function SnapPage({ app }) {
         subtitle="Press the key button to rebind. Tap the bound key repeatedly to trigger."
       >
         <Row label="Snap key">
-          <KeyCapture value={app.snapKey} target="snap" bridge={app.bridge} />
+          <KeyCapture
+            value={app.snapKey}
+            target="snap"
+            bridge={app.bridge}
+            label="Capture snap key"
+            showStatus={app.showStatus}
+          />
         </Row>
         <Row label="Restore key">
           <KeyCapture
             value={app.restoreKey}
             target="restore"
             bridge={app.bridge}
+            label="Capture restore key"
+            showStatus={app.showStatus}
           />
         </Row>
-        <Row
-          label="Press count"
-          description="How many taps trigger the action."
-        >
+        <Row label="Press count" description="How many taps trigger the action.">
           <Stepper
+            label="Press count"
             value={app.pressCount}
             onChange={(v) => app.set({ pressCount: v })}
             min={1}
@@ -312,6 +383,7 @@ function SnapPage({ app }) {
         </Row>
         <Row label="Interval" description="Maximum time between taps." last>
           <Stepper
+            label="Interval"
             value={app.interval}
             onChange={(v) => app.set({ interval: v })}
             min={100}
@@ -347,11 +419,7 @@ function SnapPage({ app }) {
               Snapped windows will match this fraction of the current display.
             </div>
           </div>
-          <Button
-            variant="ghost"
-            icon={<Icon name="play" size={12} />}
-            onClick={app.onTestSnap}
-          >
+          <Button variant="ghost" icon={<Icon name="play" size={12} />} onClick={app.onTestSnap}>
             Test snap
           </Button>
         </div>
@@ -359,18 +427,18 @@ function SnapPage({ app }) {
         <div style={{ padding: `4px ${t.cardPad}px` }}>
           <Row label="Width" description={`${app.width}% of screen width`}>
             <Slider
+              label="Snap width"
+              suffix="%"
               value={app.width}
               onChange={(v) => app.set({ width: v })}
               min={10}
               max={100}
             />
           </Row>
-          <Row
-            label="Height"
-            description={`${app.height}% of screen height`}
-            last
-          >
+          <Row label="Height" description={`${app.height}% of screen height`} last>
             <Slider
+              label="Snap height"
+              suffix="%"
               value={app.height}
               onChange={(v) => app.set({ height: v })}
               min={10}
@@ -386,87 +454,103 @@ function SnapPage({ app }) {
 function ExplorerPage({ app }) {
   const t = useTokens();
   const [confirmAction, setConfirmAction] = React.useState(null);
-  const [busy, setBusy] = React.useState(null);
+  const busy = app.viewsTask ?? null;
+  const taskStatusRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!confirmAction) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setConfirmAction(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmAction]);
+    if (busy === null) return undefined;
+    const timer = window.setTimeout(() => taskStatusRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [busy]);
 
   const runViewsAction = (action) => {
     setConfirmAction(null);
-    const method =
-      action === "apply"
-        ? app.bridge.apply_details_view
-        : app.bridge.reset_folder_views;
-    if (typeof method !== "function") {
-      // The backend build in use does not expose the folder view slots yet.
-      app.showStatus?.(
-        "Folder view changes are not supported by this backend build.",
-        5000,
-      );
+    if (busy !== null) {
       return;
     }
-    setBusy(action);
+    const methods = {
+      apply: app.bridge.apply_details_view,
+      reset: app.bridge.reset_folder_views,
+      restore: app.bridge.restore_folder_views,
+    };
+    const method = methods[action];
+    if (typeof method !== "function") {
+      // The backend build in use does not expose the folder view slots yet.
+      app.showStatus?.("Folder view changes are not supported by this backend build.", 5000);
+      app.setViewsTask?.(null);
+      return;
+    }
+    app.setViewsTask?.(action);
     const onResult = (result) => {
       // The bridge callback only acknowledges that the background task has
       // started. The real success or failure message arrives later through
       // the views_status signal, which app.jsx routes to the footer status.
-      setBusy(null);
       try {
         const r = JSON.parse(result);
         if (r.ok) {
           app.showStatus?.(
             action === "apply"
-              ? "Applying Details view. File Explorer will restart..."
-              : "Resetting folder views. File Explorer will restart...",
+              ? "Writing the Details-view defaults..."
+              : action === "reset"
+                ? "Resetting the folder-view defaults..."
+                : "Restoring the latest folder-view backup...",
             0,
           );
         } else {
+          app.setViewsTask?.(null);
           app.showStatus?.(r.error || "Folder view update failed.", 5000);
         }
       } catch (e) {
         console.error("[explorer] Failed to parse folder view result:", e);
+        app.setViewsTask?.(null);
         app.showStatus?.("Folder view update failed.", 5000);
       }
     };
-    method(onResult);
+    try {
+      method(onResult);
+    } catch (error) {
+      console.error("[explorer] Folder view invocation failed:", error);
+      app.setViewsTask?.(null);
+      app.showStatus?.("Folder view update could not start.", 5000);
+    }
   };
 
-  const confirmCopy =
-    confirmAction === "apply"
-      ? {
-          title: "Make Details the default?",
-          body: "File Explorer will restart to apply the change. Open Explorer windows will close.",
-          confirmLabel: "Apply and restart Explorer",
-          confirmVariant: "primary",
-        }
-      : {
-          title: "Reset folder views?",
-          body: "This restores the Windows default view for every folder. File Explorer will restart and open Explorer windows will close.",
-          confirmLabel: "Reset and restart Explorer",
-          confirmVariant: "danger",
-        };
+  const confirmCopy = {
+    apply: {
+      title: "Make Details the default?",
+      body: "Windows will clear saved folder layouts. Virelo creates a recovery backup under %LOCALAPPDATA%\\Virelo before changing the registry. Virelo will not close Explorer windows automatically. Restart File Explorer or sign out after the task finishes.",
+      confirmLabel: "Apply Details default",
+      confirmVariant: "primary",
+    },
+    reset: {
+      title: "Reset folder views?",
+      body: "Windows will clear saved folder layouts and restore its defaults. Virelo creates a recovery backup under %LOCALAPPDATA%\\Virelo first. Virelo will not close Explorer windows automatically. Restart File Explorer or sign out after the task finishes.",
+      confirmLabel: "Reset folder views",
+      confirmVariant: "danger",
+    },
+    restore: {
+      title: "Restore the latest folder view backup?",
+      body: "This replaces current folder views with the newest complete Virelo backup under %LOCALAPPDATA%\\Virelo. Virelo will not close Explorer windows automatically. Restart File Explorer or sign out after the task finishes.",
+      confirmLabel: "Restore folder views",
+      confirmVariant: "primary",
+    },
+  }[confirmAction] || {
+    title: "Folder view action",
+    body: "Confirm this folder view action.",
+    confirmLabel: "Continue",
+    confirmVariant: "primary",
+  };
 
   return (
-    <Pg
-      title="Explorer"
-      subtitle="Quality-of-life tweaks for File Explorer's Detail view."
-    >
+    <Pg title="Explorer" subtitle="Quality-of-life tweaks for File Explorer's Details view.">
       <Card>
         <Row
           label="Auto-size columns on folder change"
-          description="Resize Detail view columns to fit each time you navigate."
+          description="Resize Details view columns to fit each time you navigate."
           last
         >
           <Toggle
+            label="Auto-size columns on folder change"
             on={app.autoSize}
             onChange={(v) => app.set({ autoSize: v })}
           />
@@ -483,15 +567,15 @@ function ExplorerPage({ app }) {
               maxWidth: 560,
             }}
           >
-            Make Details the default view for every folder, the way WinSetView
-            does. File Explorer restarts when this is applied.
+            Make Details the default view for every folder with a focused workflow inspired by
+            WinSetView. Restart File Explorer or sign out after any change.
           </div>
-          <div
-            style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}
-          >
+          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
             <Button
               variant="primary"
               disabled={busy !== null}
+              aria-disabled={busy !== null}
+              aria-busy={busy === "apply"}
               onClick={() => setConfirmAction("apply")}
             >
               {busy === "apply" ? "Working..." : "Make Details the default"}
@@ -499,81 +583,44 @@ function ExplorerPage({ app }) {
             <Button
               variant="secondary"
               disabled={busy !== null}
+              aria-disabled={busy !== null}
+              aria-busy={busy === "reset"}
               onClick={() => setConfirmAction("reset")}
             >
-              {busy === "reset"
-                ? "Working..."
-                : "Reset folder views to Windows defaults"}
+              {busy === "reset" ? "Working..." : "Reset folder views to Windows defaults"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={busy !== null}
+              aria-disabled={busy !== null}
+              aria-busy={busy === "restore"}
+              onClick={() => setConfirmAction("restore")}
+            >
+              {busy === "restore" ? "Working..." : "Restore latest backup"}
             </Button>
           </div>
+          {busy !== null && (
+            <div
+              ref={taskStatusRef}
+              role="status"
+              tabIndex={-1}
+              style={{ marginTop: 10, color: t.textDim, fontSize: 12.5 }}
+            >
+              Folder view task is running. Keep Virelo open until it finishes.
+            </div>
+          )}
         </div>
       </Card>
 
-      {confirmAction && (
-        <div
-          onClick={() => setConfirmAction(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 50,
-            background: t.overlay,
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 360,
-              background: t.surface,
-              border: `1px solid ${t.borderHi}`,
-              borderRadius: t.radius + 4,
-              boxShadow:
-                "0 20px 60px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.08)",
-              padding: `${t.cardPad + 4}px ${t.cardPad}px`,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: t.text,
-                marginBottom: 8,
-              }}
-            >
-              {confirmCopy.title}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: t.textDim,
-                lineHeight: 1.5,
-                marginBottom: 20,
-              }}
-            >
-              {confirmCopy.body}
-            </div>
-            <div
-              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
-            >
-              <Button
-                variant="secondary"
-                onClick={() => setConfirmAction(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant={confirmCopy.confirmVariant}
-                onClick={() => runViewsAction(confirmAction)}
-              >
-                {confirmCopy.confirmLabel}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        title={confirmCopy.title}
+        description={confirmCopy.body}
+        confirmLabel={confirmCopy.confirmLabel}
+        confirmVariant={confirmCopy.confirmVariant}
+        onConfirm={() => runViewsAction(confirmAction)}
+      />
     </Pg>
   );
 }
@@ -599,10 +646,7 @@ function ShortcutsPage({ app }) {
     { label: "Command palette", keys: ["Ctrl", "K"] },
   ];
   return (
-    <Pg
-      title="Shortcuts"
-      subtitle="Global keyboard shortcuts registered by Virelo."
-    >
+    <Pg title="Shortcuts" subtitle="Global keyboard shortcuts registered by Virelo.">
       <Card padding={false}>
         {items.map((it, i) => (
           <div
@@ -611,8 +655,7 @@ function ShortcutsPage({ app }) {
               display: "flex",
               alignItems: "center",
               padding: `${t.rowPad}px ${t.cardPad}px`,
-              borderBottom:
-                i < items.length - 1 ? `1px solid ${t.border}` : "none",
+              borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : "none",
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -676,26 +719,12 @@ function GeneralPage({ app }) {
   const t = useTokens();
   const [confirmReset, setConfirmReset] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!confirmReset) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setConfirmReset(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [confirmReset]);
-
   return (
     <Pg title="General" subtitle="Application-wide preferences.">
       <Card title="Appearance">
-        <Row
-          label="Theme"
-          description="Light or dark surfaces throughout the app."
-        >
+        <Row label="Theme" description="Light or dark surfaces throughout the app.">
           <Segmented
+            label="Theme"
             options={[
               { value: "system", label: "System" },
               { value: "light", label: "Light" },
@@ -705,24 +734,21 @@ function GeneralPage({ app }) {
             onChange={(v) => app.set({ themeMode: v })}
           />
         </Row>
-        <Row
-          label="Accent color"
-          description="Used for selection, toggles, and primary actions."
-        >
+        <Row label="Accent color" description="Used for selection, toggles, and primary actions.">
           <div style={{ display: "flex", gap: 6 }}>
             {Object.entries(ACCENTS).map(([k, v]) => (
               <button
+                type="button"
                 key={k}
                 onClick={() => app.set({ accent: k })}
+                aria-label={`${k[0].toUpperCase()}${k.slice(1)} accent`}
+                aria-pressed={app.accent === k}
                 style={{
                   width: 22,
                   height: 22,
                   borderRadius: 11,
                   background: t.isDark ? v.dark : v.light,
-                  border:
-                    app.accent === k
-                      ? `2px solid ${t.text}`
-                      : `1px solid ${t.border}`,
+                  border: app.accent === k ? `2px solid ${t.text}` : `1px solid ${t.border}`,
                   cursor: "pointer",
                   padding: 0,
                 }}
@@ -730,12 +756,9 @@ function GeneralPage({ app }) {
             ))}
           </div>
         </Row>
-        <Row
-          label="Density"
-          description="Controls spacing throughout the app."
-          last
-        >
+        <Row label="Density" description="Controls spacing throughout the app." last>
           <Segmented
+            label="Density"
             options={[
               { value: "compact", label: "Compact" },
               { value: "cozy", label: "Cozy" },
@@ -748,12 +771,9 @@ function GeneralPage({ app }) {
       </Card>
 
       <Card title="Startup">
-        <Row
-          label="Launch at login"
-          description="Start Virelo when you sign in to Windows."
-          last
-        >
+        <Row label="Launch at login" description="Start Virelo when you sign in to Windows." last>
           <Toggle
+            label="Launch at login"
             on={app.launchLogin}
             onChange={(v) => app.set({ launchLogin: v })}
           />
@@ -766,85 +786,24 @@ function GeneralPage({ app }) {
           description="Restore every preference to its default value."
           last
         >
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setConfirmReset(true)}
-          >
+          <Button variant="danger" size="sm" onClick={() => setConfirmReset(true)}>
             Reset
           </Button>
         </Row>
       </Card>
 
-      {confirmReset && (
-        <div
-          onClick={() => setConfirmReset(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 50,
-            background: t.overlay,
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 360,
-              background: t.surface,
-              border: `1px solid ${t.borderHi}`,
-              borderRadius: t.radius + 4,
-              boxShadow:
-                "0 20px 60px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.08)",
-              padding: `${t.cardPad + 4}px ${t.cardPad}px`,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: t.text,
-                marginBottom: 8,
-              }}
-            >
-              Reset all settings?
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: t.textDim,
-                lineHeight: 1.5,
-                marginBottom: 20,
-              }}
-            >
-              This will restore every preference to its default value. This
-              cannot be undone.
-            </div>
-            <div
-              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
-            >
-              <Button
-                variant="secondary"
-                onClick={() => setConfirmReset(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  app.onReset();
-                  setConfirmReset(false);
-                }}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        title="Reset all settings?"
+        description="This will restore every preference to its default value. This cannot be undone."
+        confirmLabel="Reset"
+        confirmVariant="danger"
+        onConfirm={() => {
+          app.onReset();
+          setConfirmReset(false);
+        }}
+      />
     </Pg>
   );
 }
@@ -903,6 +862,7 @@ function AboutPage() {
             variant="ghost"
             size="sm"
             onClick={() => setShowLicense((v) => !v)}
+            aria-expanded={showLicense}
           >
             {showLicense ? "Hide" : "View"}
           </Button>
@@ -934,7 +894,7 @@ function Pg({ title, subtitle, children }) {
   return (
     <div>
       <div style={{ marginBottom: t.sectionGap + 6 }}>
-        <div
+        <h1
           style={{
             fontSize: t.titleSize,
             fontWeight: 600,
@@ -943,7 +903,7 @@ function Pg({ title, subtitle, children }) {
           }}
         >
           {title}
-        </div>
+        </h1>
         {subtitle && (
           <div
             style={{
@@ -958,21 +918,9 @@ function Pg({ title, subtitle, children }) {
           </div>
         )}
       </div>
-      <div
-        style={{ display: "flex", flexDirection: "column", gap: t.sectionGap }}
-      >
-        {children}
-      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: t.sectionGap }}>{children}</div>
     </div>
   );
 }
 
-export {
-  SnapPage,
-  ExplorerPage,
-  ShortcutsPage,
-  GeneralPage,
-  AboutPage,
-  MonitorPreview,
-  Pg,
-};
+export { SnapPage, ExplorerPage, ShortcutsPage, GeneralPage, AboutPage, MonitorPreview, Pg };

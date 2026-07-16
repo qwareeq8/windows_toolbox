@@ -7,8 +7,13 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
+from typing import Any
 
-from virelo.app.config import APP_NAME, LOG_DIR, LOG_FILE, ORGANIZATION
+from virelo.app.config import APP_ID, APP_NAME, LOG_DIR, LOG_FILE, ORGANIZATION
+
+MUTEX_NAME = rf"Local\{APP_NAME}_Mutex"
+LEGACY_MUTEX_NAME = rf"Global\{APP_NAME}_Mutex"
+MUTEX_NAMES = (MUTEX_NAME, LEGACY_MUTEX_NAME)
 
 
 def _init_logger() -> logging.Logger:
@@ -58,7 +63,7 @@ def _init_logger() -> logging.Logger:
         console_handler.setLevel(logging.INFO)  # Console shows INFO and above
         logger.addHandler(console_handler)
 
-    logger.log_path = getattr(existing_handler, "baseFilename", log_path)
+    setattr(logger, "log_path", getattr(existing_handler, "baseFilename", log_path))
     return logger
 
 
@@ -75,22 +80,39 @@ def _instance_already_running() -> bool:
     Uses OpenMutexW so it works before elevation and never creates the mutex;
     the authoritative CreateMutex happens later in the elevated process.
     """
-    SYNCHRONIZE = 0x00100000
-    handle = ctypes.windll.kernel32.OpenMutexW(SYNCHRONIZE, False, f"Global\\{APP_NAME}_Mutex")
-    if handle:
-        ctypes.windll.kernel32.CloseHandle(handle)
-        return True
+    from ctypes import wintypes
+
+    synchronize = 0x00100000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel32.OpenMutexW.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    for mutex_name in MUTEX_NAMES:
+        handle = kernel32.OpenMutexW(synchronize, False, mutex_name)
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
     return False
 
 
 def _focus_running_instance() -> None:
     """Best-effort: bring the already-running instance's window to front."""
     try:
-        hwnd = ctypes.windll.user32.FindWindowW(None, APP_NAME)
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        user32.FindWindowW.restype = wintypes.HWND
+        user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.ShowWindow.restype = wintypes.BOOL
+        user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+        user32.SetForegroundWindow.restype = wintypes.BOOL
+        hwnd = user32.FindWindowW(None, APP_NAME)
         if hwnd:
-            SW_SHOW = 5
-            ctypes.windll.user32.ShowWindow(hwnd, SW_SHOW)
-            ctypes.windll.user32.SetForegroundWindow(hwnd)
+            sw_show = 5
+            user32.ShowWindow(hwnd, sw_show)
+            user32.SetForegroundWindow(hwnd)
     except Exception:
         pass
 
@@ -115,7 +137,7 @@ def _run_smoke_test():
             print(f"  PASS  {name}")
             passed += 1
         except Exception as e:
-            print(f"  FAIL  {name} -- {e}")
+            print(f"  FAIL  {name}: {e}")
             failed += 1
 
     print("Virelo smoke test")
@@ -151,14 +173,14 @@ def _run_smoke_test():
 
     check("QWebEngine construction", _check_webengine)
 
-    # Check 4: Settings reads/writes without exceptions
+    # Check 4: Settings can read its backing store without exceptions.
     def _check_settings():
         from virelo.settings.persistence import Settings
 
         s = Settings()
         _ = s.snap_key  # read a known key
 
-    check("Settings read/write", _check_settings)
+    check("Settings read", _check_settings)
 
     # Check 5: SettingsState initializes with valid defaults
     def _check_settings_state():
@@ -283,16 +305,22 @@ def main():
 
     _enable_dpi_awareness()
     try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.yusufqwareeq.virelo")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
     except Exception:
         pass
 
     QtCore.QCoreApplication.setOrganizationName(ORGANIZATION)
     QtCore.QCoreApplication.setApplicationName(APP_NAME)
 
-    mutex = win32event.CreateMutex(None, False, f"Global\\{APP_NAME}_Mutex")
-    if win32api.GetLastError() == winerror.ERROR_ALREADY_EXISTS:
-        return
+    mutex_handles: list[Any] = []
+    for mutex_name in MUTEX_NAMES:
+        handle = win32event.CreateMutex(None, False, mutex_name)
+        if win32api.GetLastError() == winerror.ERROR_ALREADY_EXISTS:
+            for created_handle in mutex_handles:
+                created_handle.Close()
+            handle.Close()
+            return
+        mutex_handles.append(handle)
 
     app = QtWidgets.QApplication(sys.argv)
     # Safer to set after QApplication exists:
@@ -317,7 +345,7 @@ def main():
     app.aboutToQuit.connect(_shutdown)
     atexit.register(_shutdown)
 
-    win._singleton_mutex = mutex
+    setattr(win, "_singleton_mutexes", tuple(mutex_handles))
     win.show()
     sys.exit(app.exec())
 

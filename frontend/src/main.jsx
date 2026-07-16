@@ -2,19 +2,14 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "./theme.jsx";
 import VireloApp from "./app.jsx";
-import { getBridge, getBridgeSync } from "./bridge.js";
+import { getBridge } from "./bridge.js";
 
 /**
  * Inner component that renders AFTER bridge is ready.
  * This avoids the React hooks violation of calling useState after a conditional return.
  * All hooks in this component are called unconditionally.
  */
-function AppWithBridge({
-  bridge,
-  initialTheme,
-  initialAccent,
-  initialDensity,
-}) {
+function AppWithBridge({ bridge, initialTheme, initialAccent, initialDensity }) {
   const [tweaks, setTweaks] = React.useState({
     theme: initialTheme,
     accent: initialAccent || "slate",
@@ -24,23 +19,29 @@ function AppWithBridge({
   });
 
   React.useEffect(() => {
-    const handler = (theme) => {
-      setTweaks((prev) => ({ ...prev, theme }));
+    const onThemeApplied = (theme) => {
+      setTweaks((prev) => (prev.theme === theme ? prev : { ...prev, theme }));
     };
-    bridge.theme_applied.connect(handler);
-
-    bridge.settings_changed.connect((json) => {
+    const onSettingsChanged = (json) => {
       try {
         const settings = JSON.parse(json);
-        setTweaks((prev) => ({
-          ...prev,
-          accent: settings.accent || prev.accent,
-          density: settings.density || prev.density,
-        }));
+        setTweaks((prev) => {
+          const accent = settings.accent || prev.accent;
+          const density = settings.density || prev.density;
+          if (accent === prev.accent && density === prev.density) return prev;
+          return { ...prev, accent, density };
+        });
       } catch (e) {
         console.error("[main] Failed to parse settings_changed for tweaks:", e);
       }
-    });
+    };
+
+    bridge.theme_applied.connect(onThemeApplied);
+    bridge.settings_changed.connect(onSettingsChanged);
+    return () => {
+      bridge.theme_applied.disconnect?.(onThemeApplied);
+      bridge.settings_changed.disconnect?.(onSettingsChanged);
+    };
   }, [bridge]);
 
   const handleSetTweaks = (updates) => {
@@ -54,6 +55,36 @@ function AppWithBridge({
   );
 }
 
+function BridgeError({ message }) {
+  return (
+    <div
+      role="alert"
+      style={{
+        width: "100%",
+        height: "100%",
+        background: "#111113",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#ECECEE",
+        fontFamily: "Arial, Helvetica, sans-serif",
+        padding: 32,
+      }}
+    >
+      <div style={{ maxWidth: 520, textAlign: "center" }}>
+        <h1 style={{ margin: "0 0 12px", fontSize: 22 }}>Backend connection failed.</h1>
+        <p style={{ margin: "0 0 8px", lineHeight: 1.5 }}>
+          Virelo cannot safely load or change settings because its Windows backend is unavailable.
+        </p>
+        <p style={{ margin: "0 0 20px", color: "#B8B8C0", lineHeight: 1.5 }}>{message}</p>
+        <button type="button" onClick={() => window.location.reload()}>
+          Reload Virelo
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Root component handles bridge initialization only.
  * Uses a single useState + useEffect pair, then conditionally renders
@@ -64,7 +95,7 @@ function Root() {
 
   React.useEffect(() => {
     // Resolve at most once, from whichever finishes first: the normal
-    // bootstrap path, the failure path, or the timeout fallback.
+    // bootstrap path, an explicit failure, or the connection timeout.
     let settled = false;
     const finish = (payload) => {
       if (settled) return;
@@ -77,13 +108,13 @@ function Root() {
       initialAccent: "slate",
       initialDensity: "cozy",
     };
-    // If the bridge callbacks never fire, render the app with defaults
-    // instead of showing the loading screen forever.
+    // Fail closed if bridge callbacks never fire. A production UI backed by
+    // inert mock actions would falsely claim that settings were changed.
     const timer = setTimeout(() => {
-      console.warn(
-        "[main] Bridge did not respond within 3 seconds; rendering with defaults.",
-      );
-      finish({ bridge: getBridgeSync(), ...defaults });
+      console.warn("[main] Bridge did not respond within 3 seconds.");
+      finish({
+        error: "The backend did not respond within three seconds. Restart Virelo and try again.",
+      });
     }, 3000);
     getBridge()
       .then((b) => {
@@ -92,10 +123,7 @@ function Root() {
             try {
               const tr = JSON.parse(themeResult);
               const sr = JSON.parse(settingsResult);
-              const themeData =
-                tr.ok && tr.data
-                  ? tr.data
-                  : { mode: "system", effective: "dark" };
+              const themeData = tr.ok && tr.data ? tr.data : { mode: "system", effective: "dark" };
               const settingsData = sr.ok && sr.data ? sr.data : {};
               finish({
                 bridge: b,
@@ -112,14 +140,19 @@ function Root() {
       })
       .catch((e) => {
         console.error("[main] Bridge initialization failed:", e);
-        finish({ bridge: getBridgeSync(), ...defaults });
+        finish({ error: e instanceof Error ? e.message : String(e) });
       });
-    return () => clearTimeout(timer);
+    return () => {
+      settled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   if (!bridgeState) {
     return (
       <div
+        role="status"
+        aria-live="polite"
         style={{
           width: "100%",
           height: "100%",
@@ -128,7 +161,7 @@ function Root() {
           alignItems: "center",
           justifyContent: "center",
           color: "#ECECEE",
-          fontFamily: '"Inter", "Segoe UI", sans-serif',
+          fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: 14,
         }}
       >
@@ -136,6 +169,8 @@ function Root() {
       </div>
     );
   }
+
+  if (bridgeState.error) return <BridgeError message={bridgeState.error} />;
 
   return (
     <AppWithBridge

@@ -7,6 +7,7 @@ KeyCaptureWorker wraps it in a QObject for use on a QThread.
 import logging
 import threading
 import time
+from typing import Any
 
 LOG = logging.getLogger("Virelo")
 
@@ -84,8 +85,11 @@ class KeyCaptureSession:
 
 
 # Conditional PySide6 import for CI compatibility (D-10)
+QtCore: Any
 try:
-    from PySide6 import QtCore
+    from PySide6 import QtCore as _QtCore
+
+    QtCore = _QtCore
 except Exception:  # pragma: no cover - PySide6 unavailable in some test envs
     QtCore = None
 
@@ -100,7 +104,9 @@ if QtCore is not None:
         def __init__(self, keyboard_module=None, cancel_key="esc", timeout_s=15.0):
             super().__init__()
             if keyboard_module is None:
-                import keyboard as keyboard_module
+                import keyboard
+
+                keyboard_module = keyboard
             self._session = KeyCaptureSession(
                 keyboard_module,
                 cancel_key=cancel_key,

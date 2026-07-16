@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "../theme.jsx";
 import { CommandPalette } from "../panels.jsx";
 
-// Wrap component in ThemeProvider with minimal tweaks
+// Wrap the component in ThemeProvider with minimal tweaks.
 function renderPalette(props = {}) {
   const tweaks = { theme: "dark", accent: "slate", density: "cozy", radius: 6 };
   const setTweaks = vi.fn();
@@ -32,13 +32,17 @@ function renderPalette(props = {}) {
 }
 
 describe("CommandPalette", () => {
-  it("renders the search input when open", () => {
+  it("Renders the search input when open.", async () => {
     renderPalette();
-    const input = screen.getByPlaceholderText(/search/i);
+    const input = screen.getByRole("combobox", { name: "Search commands" });
     expect(input).toBeInTheDocument();
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
+    expect(screen.getByRole("listbox", { name: "Available commands" })).toBeInTheDocument();
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
   });
 
-  it("shows all commands when no filter is applied", () => {
+  it("Shows all commands when no filter is applied.", () => {
     renderPalette();
     // Navigate group commands should appear
     expect(screen.getByText("Go to Window snap")).toBeInTheDocument();
@@ -48,7 +52,7 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Save changes")).toBeInTheDocument();
   });
 
-  it("filters commands when typing a search query", async () => {
+  it("Filters commands when typing a search query.", async () => {
     renderPalette();
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText(/search/i);
@@ -61,7 +65,7 @@ describe("CommandPalette", () => {
     expect(screen.queryByText("Go to About")).not.toBeInTheDocument();
   });
 
-  it("shows no-results message for unmatched filter", async () => {
+  it("Shows a no-results message for an unmatched filter.", async () => {
     renderPalette();
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText(/search/i);
@@ -69,12 +73,12 @@ describe("CommandPalette", () => {
     expect(screen.getByText(/no results/i)).toBeInTheDocument();
   });
 
-  it("does not render when open is false", () => {
+  it("Does not render when open is false.", () => {
     renderPalette({ open: false });
     expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
   });
 
-  it("highlights the hovered item instead of the last item", async () => {
+  it("Highlights the hovered item instead of the last item.", async () => {
     const setNav = vi.fn();
     renderPalette({ setNav });
     const user = userEvent.setup();

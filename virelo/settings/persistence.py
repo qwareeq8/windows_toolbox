@@ -55,8 +55,16 @@ class Settings:
             self._qs.value("theme", DEFAULTS["theme"], str),
             DEFAULTS["theme"],
         )
-        self.accent = str(self._qs.value("accent", DEFAULTS["accent"], str))
-        self.density = str(self._qs.value("density", DEFAULTS["density"], str))
+        self.accent = _safe_choice(
+            self._qs.value("accent", DEFAULTS["accent"], str),
+            str(DEFAULTS["accent"]),
+            ("slate", "teal", "blue", "rust", "purple"),
+        )
+        self.density = _safe_choice(
+            self._qs.value("density", DEFAULTS["density"], str),
+            str(DEFAULTS["density"]),
+            ("compact", "cozy", "comfortable"),
+        )
         self.minimize_to_tray = _safe_bool(
             self._qs.value("minimize_to_tray", DEFAULTS["minimize_to_tray"], bool),
             DEFAULTS["minimize_to_tray"],
@@ -69,23 +77,24 @@ class Settings:
         self._qs.endGroup()
 
     def save(self):
-        self.clear()
         self._qs.beginGroup(SETTINGS_GROUP)
-        self._qs.setValue("snap_key", self.snap_key)
-        self._qs.setValue("restore_key", self.restore_key)
-        self._qs.setValue("enable_snap", self.enable_snap)
-        self._qs.setValue("snap_presses", self.snap_presses)
-        self._qs.setValue("snap_interval", self.snap_interval)
-        self._qs.setValue("width_pct", self.width_pct)
-        self._qs.setValue("height_pct", self.height_pct)
-        self._qs.setValue("ex_auto_size", self.ex_auto_size)
-        self._qs.setValue("run_at_startup", self.run_at_startup)
-        self._qs.setValue("game_mode_enabled", self.game_mode_enabled)
-        self._qs.setValue("theme", self.theme)
-        self._qs.setValue("accent", self.accent)
-        self._qs.setValue("density", self.density)
-        self._qs.setValue("minimize_to_tray", self.minimize_to_tray)
-        self._qs.endGroup()
+        try:
+            self._qs.setValue("snap_key", self.snap_key)
+            self._qs.setValue("restore_key", self.restore_key)
+            self._qs.setValue("enable_snap", self.enable_snap)
+            self._qs.setValue("snap_presses", self.snap_presses)
+            self._qs.setValue("snap_interval", self.snap_interval)
+            self._qs.setValue("width_pct", self.width_pct)
+            self._qs.setValue("height_pct", self.height_pct)
+            self._qs.setValue("ex_auto_size", self.ex_auto_size)
+            self._qs.setValue("run_at_startup", self.run_at_startup)
+            self._qs.setValue("game_mode_enabled", self.game_mode_enabled)
+            self._qs.setValue("theme", self.theme)
+            self._qs.setValue("accent", self.accent)
+            self._qs.setValue("density", self.density)
+            self._qs.setValue("minimize_to_tray", self.minimize_to_tray)
+        finally:
+            self._qs.endGroup()
         # Flush to the backing store and surface a write failure to the caller
         # instead of silently reporting a clean save.
         self._qs.sync()
@@ -121,3 +130,9 @@ def _safe_bool(val, default):
         return bool(int(val))
     except Exception:
         return default
+
+
+def _safe_choice(value, default: str, choices: tuple[str, ...]) -> str:
+    """Normalize a persisted choice and fall back when it is invalid."""
+    normalized = str(value).strip().lower() if value is not None else ""
+    return normalized if normalized in choices else default

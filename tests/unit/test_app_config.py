@@ -56,3 +56,12 @@ def test_app_version_format():
     assert len(APP_VERSION) > 0
     parts = APP_VERSION.split(".")
     assert len(parts) == 3
+
+
+def test_single_instance_mutex_is_scoped_to_the_interactive_session():
+    """The current mutex is session-local and the shipped global name remains compatible."""
+    from virelo.app.__main__ import LEGACY_MUTEX_NAME, MUTEX_NAME, MUTEX_NAMES
+
+    assert MUTEX_NAME == r"Local\Virelo_Mutex"
+    assert LEGACY_MUTEX_NAME == r"Global\Virelo_Mutex"
+    assert MUTEX_NAMES == (MUTEX_NAME, LEGACY_MUTEX_NAME)

@@ -1,7 +1,7 @@
 """Tests for settings bounds clamping on the registry read path."""
 
 from virelo.app.config import DEFAULTS, normalize_snap_presses
-from virelo.settings.persistence import _safe_int
+from virelo.settings.persistence import _safe_choice, _safe_int
 
 
 def test_safe_int_clamps_low():
@@ -37,3 +37,13 @@ def test_normalize_snap_presses_clamps_lower():
 
 def test_normalize_snap_presses_garbage_uses_default():
     assert normalize_snap_presses("abc") == DEFAULTS["snap_presses"]
+
+
+def test_safe_choice_normalizes_supported_value():
+    """Persisted visual choices are normalized before use."""
+    assert _safe_choice(" TEAL ", "slate", ("slate", "teal")) == "teal"
+
+
+def test_safe_choice_rejects_unknown_value():
+    """A corrupted visual choice falls back to the configured default."""
+    assert _safe_choice("neon", "slate", ("slate", "teal")) == "slate"

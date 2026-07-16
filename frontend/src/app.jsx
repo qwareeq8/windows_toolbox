@@ -2,13 +2,7 @@
 
 import React from "react";
 import { useTokens, useTheme } from "./theme.jsx";
-import {
-  SnapPage,
-  ExplorerPage,
-  ShortcutsPage,
-  GeneralPage,
-  AboutPage,
-} from "./pages.jsx";
+import { SnapPage, ExplorerPage, ShortcutsPage, GeneralPage, AboutPage } from "./pages.jsx";
 import { CommandPalette } from "./panels.jsx";
 import { Button, Badge } from "./primitives.jsx";
 import { Icon } from "./icons.jsx";
@@ -26,7 +20,7 @@ const CAPTURE_STATUS_COPY = {
   timeout: "Capture timed out.",
 };
 
-function TitleBar({ onOpenPalette, bridge }) {
+function TitleBar({ onOpenPalette, onWindowCommand }) {
   const t = useTokens();
   return (
     <div
@@ -41,6 +35,7 @@ function TitleBar({ onOpenPalette, bridge }) {
       }}
     >
       <div
+        aria-hidden="true"
         style={{
           width: 14,
           height: 14,
@@ -58,15 +53,18 @@ function TitleBar({ onOpenPalette, bridge }) {
       </div>
       <div style={{ fontSize: 12, fontWeight: 500, color: t.text }}>Virelo</div>
 
+      <div style={{ flex: 1 }} />
       <button
+        type="button"
         onClick={onOpenPalette}
+        aria-label="Search settings and commands"
+        title="Search settings and commands (Ctrl+K)"
         style={{
-          marginLeft: 14,
           display: "flex",
           alignItems: "center",
           gap: 8,
           height: 22,
-          padding: "0 8px 0 8px",
+          padding: "0 8px",
           background: t.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)",
           border: `1px solid ${t.border}`,
           borderRadius: t.radius,
@@ -74,19 +72,22 @@ function TitleBar({ onOpenPalette, bridge }) {
           fontSize: 11.5,
           cursor: "pointer",
           fontFamily: "inherit",
-          minWidth: 220,
+          boxSizing: "border-box",
+          flex: "0 0 220px",
+          width: 220,
         }}
       >
         <Icon name="search" size={11} />
         <span style={{ flex: 1, textAlign: "left" }}>Search or jump to...</span>
-        <span style={{ fontFamily: t.mono, fontSize: 10, opacity: 0.7 }}>
+        <span aria-hidden="true" style={{ fontFamily: t.mono, fontSize: 10, opacity: 0.7 }}>
           Ctrl K
         </span>
       </button>
-
-      <div style={{ flex: 1 }} />
       <button
-        onClick={() => bridge.setWindowCommand("minimize", () => {})}
+        type="button"
+        aria-label="Minimize Virelo"
+        title="Minimize"
+        onClick={() => onWindowCommand("minimize")}
         style={{
           width: 28,
           height: 26,
@@ -103,10 +104,13 @@ function TitleBar({ onOpenPalette, bridge }) {
         onMouseEnter={(e) => (e.currentTarget.style.background = t.hover)}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
-        {"—"}
+        {"-"}
       </button>
       <button
-        onClick={() => bridge.setWindowCommand("close", () => {})}
+        type="button"
+        aria-label="Close Virelo"
+        title="Close"
+        onClick={() => onWindowCommand("close")}
         style={{
           width: 28,
           height: 26,
@@ -123,7 +127,7 @@ function TitleBar({ onOpenPalette, bridge }) {
         onMouseEnter={(e) => (e.currentTarget.style.background = "#e81123")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
-        {"x"}
+        {"X"}
       </button>
     </div>
   );
@@ -135,10 +139,13 @@ function NavItem({ icon, label, active, onClick, badge, mode }) {
   const iconsOnly = mode === "icons";
   return (
     <button
+      type="button"
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       title={iconsOnly ? label : undefined}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
       style={{
         width: "100%",
         display: "flex",
@@ -182,7 +189,8 @@ function Sidebar({ nav, setNav, app, mode }) {
   const iconsOnly = mode === "icons";
   const width = iconsOnly ? 52 : 208;
   return (
-    <div
+    <nav
+      aria-label="Virelo settings"
       style={{
         width,
         background: t.sidebar,
@@ -192,6 +200,7 @@ function Sidebar({ nav, setNav, app, mode }) {
         flexDirection: "column",
         gap: 2,
         transition: "width .18s",
+        flexShrink: 0,
       }}
     >
       {!iconsOnly && (
@@ -271,7 +280,7 @@ function Sidebar({ nav, setNav, app, mode }) {
           v{__APP_VERSION__}
         </div>
       )}
-    </div>
+    </nav>
   );
 }
 
@@ -288,9 +297,14 @@ function Footer({ unsaved, onSave, onDiscard, statusMsg }) {
         gap: 10,
       }}
     >
-      {statusMsg && (
-        <span style={{ fontSize: 12, color: t.textDim }}>{statusMsg}</span>
-      )}
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{ fontSize: 12, color: t.textDim }}
+      >
+        {statusMsg}
+      </span>
       <div style={{ flex: 1 }} />
       {unsaved && (
         <>
@@ -304,6 +318,7 @@ function Footer({ unsaved, onSave, onDiscard, statusMsg }) {
             }}
           >
             <span
+              aria-hidden="true"
               style={{
                 display: "inline-block",
                 width: 6,
@@ -387,6 +402,7 @@ export default function VireloApp({ bridge }) {
   });
   const [unsaved, setUnsaved] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState("");
+  const [viewsTask, setViewsTask] = React.useState(null);
 
   // Footer status helper. Shows a message and clears it after timeoutMs
   // milliseconds; a timeout of 0 keeps the message until it is replaced.
@@ -410,55 +426,80 @@ export default function VireloApp({ bridge }) {
 
   // Load initial settings from bridge
   React.useEffect(() => {
+    let active = true;
     bridge.get_settings((json) => {
+      if (!active) return;
       try {
         const r = JSON.parse(json);
         if (r.ok && r.data) {
           setState(bridgeToState(r.data));
+        } else {
+          showStatus(`Settings could not be loaded: ${r.error || "unknown error"}`, 5000);
         }
       } catch (e) {
         console.error("[app] Failed to parse initial settings:", e);
+        showStatus("Settings could not be loaded: invalid response from the backend.", 5000);
       }
     });
 
-    bridge.settings_changed.connect((json) => {
+    const onSettingsChanged = (json) => {
       try {
         const settings = JSON.parse(json);
         setState(bridgeToState(settings));
       } catch (e) {
         console.error("[app] Failed to parse settings_changed:", e);
       }
-    });
+    };
 
-    bridge.dirty_changed.connect((isDirty) => {
+    const onDirtyChanged = (isDirty) => {
       setUnsaved(isDirty);
-    });
+    };
 
     // Subscribe to snap status messages, honoring the backend timeout.
-    bridge.snap_status.connect((message, timeoutMs) => {
-      showStatus(
-        message,
-        typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : 3000,
-      );
-    });
+    const onSnapStatus = (message, timeoutMs) => {
+      showStatus(message, typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : 3000);
+    };
 
     // Map raw capture tokens to readable copy. Terminal states clear after
     // three seconds; the in-progress state persists until it resolves.
-    bridge.capture_status.connect((status) => {
+    const onCaptureStatus = (status) => {
       const message = CAPTURE_STATUS_COPY[status] || status;
       showStatus(message, status === "capturing" ? 0 : 3000);
-    });
+    };
 
     // Folder view operations report completion through views_status. Guard
     // the connect so a backend without the signal does not crash the UI.
-    if (bridge.views_status) {
-      bridge.views_status.connect((message, timeoutMs) => {
-        showStatus(
-          message,
-          typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : 3000,
-        );
-      });
-    }
+    const onViewsStatus = (message, timeoutMs) => {
+      showStatus(message, typeof timeoutMs === "number" && timeoutMs > 0 ? timeoutMs : 3000);
+    };
+
+    const onViewsTaskChanged = (json) => {
+      try {
+        const event = typeof json === "string" ? JSON.parse(json) : json;
+        if (!event || typeof event !== "object") throw new Error("Expected an object.");
+        if (event.state === "started") setViewsTask(event.kind || "views");
+        if (event.state === "succeeded" || event.state === "failed") setViewsTask(null);
+      } catch (error) {
+        console.error("[app] Failed to parse views_task_changed:", error);
+        setViewsTask(null);
+        showStatus("Folder view task status could not be read.", 5000);
+      }
+    };
+
+    const subscriptions = [
+      [bridge.settings_changed, onSettingsChanged],
+      [bridge.dirty_changed, onDirtyChanged],
+      [bridge.snap_status, onSnapStatus],
+      [bridge.capture_status, onCaptureStatus],
+      [bridge.views_status, onViewsStatus],
+      [bridge.views_task_changed, onViewsTaskChanged],
+    ].filter(([signal]) => signal?.connect);
+    subscriptions.forEach(([signal, handler]) => signal.connect(handler));
+
+    return () => {
+      active = false;
+      subscriptions.forEach(([signal, handler]) => signal.disconnect?.(handler));
+    };
   }, [bridge, showStatus]);
 
   // Mirror of the latest state so `set` can compute the next full snapshot
@@ -588,9 +629,13 @@ export default function VireloApp({ bridge }) {
         const r = JSON.parse(json);
         if (r.ok && r.data) {
           setState(bridgeToState(r.data));
+          showStatus("Settings were reset to their defaults.", 3000);
+        } else {
+          showStatus(`Reset failed: ${r.error || "unknown error"}`, 5000);
         }
       } catch (e) {
         console.error("[app] Failed to parse reset_defaults result:", e);
+        showStatus("Reset failed: invalid response from the backend.", 5000);
       }
     });
   };
@@ -606,9 +651,35 @@ export default function VireloApp({ bridge }) {
         }
       } catch (e) {
         console.error("[app] Failed to parse test_snap result:", e);
+        showStatus("Test snap failed: invalid response from the backend.", 5000);
       }
     });
   };
+
+  const handleWindowCommand = React.useCallback(
+    (command) => {
+      try {
+        bridge.setWindowCommand(command, (result) => {
+          try {
+            const parsed = JSON.parse(result);
+            if (!parsed.ok) {
+              showStatus(
+                `${command === "close" ? "Close" : "Minimize"} failed: ${parsed.error}`,
+                5000,
+              );
+            }
+          } catch (error) {
+            console.error("[app] Failed to parse window command result:", error);
+            showStatus("Window command failed: invalid response from the backend.", 5000);
+          }
+        });
+      } catch (error) {
+        console.error("[app] Window command invocation failed:", error);
+        showStatus("Window command could not be sent to the backend.", 5000);
+      }
+    },
+    [bridge, showStatus],
+  );
 
   const app = {
     ...state,
@@ -617,6 +688,8 @@ export default function VireloApp({ bridge }) {
     onReset: handleReset,
     bridge,
     showStatus,
+    viewsTask,
+    setViewsTask,
   };
 
   // Ctrl+K to toggle command palette
@@ -641,6 +714,7 @@ export default function VireloApp({ bridge }) {
 
   return (
     <div
+      data-app-shell
       style={{
         width: "100%",
         height: "100%",
@@ -654,24 +728,20 @@ export default function VireloApp({ bridge }) {
         position: "relative",
       }}
     >
-      <TitleBar onOpenPalette={() => setPalette(true)} bridge={bridge} />
+      <TitleBar onOpenPalette={() => setPalette(true)} onWindowCommand={handleWindowCommand} />
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        <Sidebar
-          nav={nav}
-          setNav={setNav}
-          app={app}
-          mode={tweaks.sidebarMode}
-        />
-        <div
+        <Sidebar nav={nav} setNav={setNav} app={app} mode={tweaks.sidebarMode} />
+        <main
           style={{
             flex: 1,
+            minWidth: 0,
             overflowY: "auto",
             padding: `${t.cardPad + 8}px ${t.cardPad + 14}px ${t.cardPad + 8}px`,
           }}
         >
           <Page app={app} />
           <div style={{ height: 30 }} />
-        </div>
+        </main>
       </div>
       <Footer
         unsaved={unsaved}

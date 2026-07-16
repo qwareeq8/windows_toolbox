@@ -14,9 +14,12 @@ All slots return structured JSON payloads:
 import json
 import logging
 import threading
+from collections.abc import Callable
+from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
 
+from virelo.app.config import DEFAULTS
 from virelo.services.snap import SnapService
 from virelo.settings.state import SettingsState
 
@@ -40,7 +43,8 @@ class VireloBridge(QObject):
     capture_status = Signal(str)  # "capturing", "done", "cancelled", "timeout"
     dirty_changed = Signal(bool)  # True = unsaved draft exists, False = clean
     views_status = Signal(str, int)  # (message, timeout_ms) for folder view tasks
-    explorer_service_restart = Signal()  # Restart autosize worker after Explorer restart
+    views_task_changed = Signal(str)  # JSON: {"kind": ..., "state": ...}
+    explorer_service_restart = Signal()  # Resume autosize after a folder-view task
 
     def __init__(
         self,
@@ -108,11 +112,10 @@ class VireloBridge(QObject):
     def commit_draft(self) -> str:
         """Persist draft settings to QSettings and apply side effects."""
         try:
-            result = self._state.commit_draft()
+            result = self._commit_pending_settings()
             if result.get("ok"):
                 self.settings_changed.emit(self._state.get_json())
                 self.dirty_changed.emit(False)
-                self._apply_side_effects(result.get("applied", {}))
             return json.dumps(result)
         except Exception as e:
             LOG.exception("commit_draft failed")
@@ -141,32 +144,31 @@ class VireloBridge(QObject):
     @Slot(result=str)
     def reset_defaults(self) -> str:
         """Reset all settings to defaults. Returns new settings as structured payload."""
+        previous_draft = self._state.pending_changes
+        self._state.discard_draft()
         try:
-            new_settings = self._state.reset_to_defaults()
+            staged = self._state.apply_draft(DEFAULTS)
+            if not staged.get("ok"):
+                raise ValueError(staged.get("error", "The default settings are invalid."))
+            result = self._commit_pending_settings()
+            if not result.get("ok"):
+                raise OSError(result.get("error", "The default settings could not be saved."))
+            new_settings = self._state.get_all()
             self.settings_changed.emit(self._state.get_json())
             self.dirty_changed.emit(False)
-            # Apply all business logic side effects
-            if self._main_window:
-                mw = self._main_window
-                mw._update_snap_enabled_state()
-                mw._update_explorer_autosize_thread()
-                if hasattr(mw, "_hotkey_listener"):
-                    mw._hotkey_listener.update_binding(new_settings["snap_key"])
-                    mw._hotkey_listener.update_restore_key(new_settings["restore_key"])
-                    mw._hotkey_listener.update_press_limit(new_settings["snap_presses"])
-                mw._apply_theme_mode(new_settings["theme"])
-                # Reset must also reconcile the out-of-QSettings side effects,
-                # or the startup shortcut and tray checkmarks drift from the
-                # restored defaults.
-                self._apply_side_effects(
-                    {
-                        "run_at_startup": new_settings["run_at_startup"],
-                        "minimize_to_tray": new_settings["minimize_to_tray"],
-                    }
-                )
+            self.snap_status.emit("Defaults loaded.", 3000)
             return json.dumps({"ok": True, "data": new_settings})
         except Exception as e:
             LOG.exception("reset_defaults failed")
+            self._state.discard_draft()
+            if previous_draft:
+                restored = self._state.apply_draft(previous_draft)
+                if not restored.get("ok"):
+                    LOG.error("Restoring the pre-reset settings draft failed: %s", restored)
+            self.settings_changed.emit(self._state.get_json())
+            self.dirty_changed.emit(self._state.has_draft)
+            if self._main_window:
+                self._main_window._apply_theme_mode(self._state.get_all()["theme"])
             return json.dumps({"ok": False, "error": str(e)})
 
     # --- Snap Slots ---
@@ -255,24 +257,31 @@ class VireloBridge(QObject):
 
     @Slot(result=str)
     def apply_details_view(self) -> str:
-        """Make Details the default view for all folders. Restarts Explorer."""
+        """Make Details the default view for all folders."""
         return self._start_view_task("apply", "Details is now the default view for all folders.")
 
     @Slot(result=str)
     def reset_folder_views(self) -> str:
-        """Reset all folder views to Windows defaults. Restarts Explorer."""
+        """Reset all folder views to Windows defaults."""
         return self._start_view_task("reset", "Folder views were reset to Windows defaults.")
+
+    @Slot(result=str)
+    def restore_folder_views(self) -> str:
+        """Restore the latest complete Virelo folder-view backup."""
+        return self._start_view_task("restore", "The latest folder-view backup was restored.")
 
     def _start_view_task(self, kind: str, success_message: str) -> str:
         """Run a folder view registry task on a background thread.
 
-        The work kills and relaunches Explorer, which takes seconds; it must
-        not run on the GUI thread. Completion is reported via views_status.
+        Registry backup and mutation can take seconds, so the work must not run
+        on the GUI thread. Completion is reported via views_status.
         """
+        if kind not in ("apply", "reset", "restore"):
+            return json.dumps({"ok": False, "error": f"Unknown folder view task: {kind}."})
         if self._views_thread is not None and self._views_thread.is_alive():
-            return json.dumps({"ok": False, "error": "A folder view task is already running"})
+            return json.dumps({"ok": False, "error": "A folder view task is already running."})
 
-        # Stop the autosize worker so it does not fight the Explorer restart.
+        # Stop the autosize worker while Explorer's view defaults are changing.
         if self._main_window is not None:
             try:
                 self._main_window._explorer_service.stop()
@@ -285,21 +294,64 @@ class VireloBridge(QObject):
             try:
                 if kind == "apply":
                     result = explorer_views.apply_details_default()
-                else:
+                elif kind == "reset":
                     result = explorer_views.reset_folder_views()
+                else:
+                    result = explorer_views.restore_latest_view_backup()
                 if result.get("ok"):
                     message = success_message
-                    if not result.get("data", {}).get("restarted", True):
-                        message += " Restart File Explorer to see the change."
-                    self.views_status.emit(message, 6000)
+                    result_data = result.get("data", {})
+                    backup = result_data.get("backup")
+                    safety_backup = result_data.get("safety_backup")
+                    if kind == "restore" and backup:
+                        message += f" Restored from: {backup}."
+                    elif backup:
+                        message += f" Recovery backup: {backup}."
+                    if safety_backup:
+                        message += f" Pre-restore safety backup: {safety_backup}."
+                    if not result_data.get("restarted", True):
+                        message += " Restart File Explorer or sign out to see the change."
+                    self.views_status.emit(message, 12000)
+                    self.views_task_changed.emit(
+                        json.dumps(
+                            {
+                                "kind": kind,
+                                "state": "succeeded",
+                                "data": result_data,
+                            }
+                        )
+                    )
                 else:
+                    data = result.get("data", {})
+                    rollback = ""
+                    if data.get("rolled_back") is True:
+                        rollback = " The prior folder views were restored automatically."
+                    elif data.get("rolled_back") is False:
+                        rollback = (
+                            " Automatic recovery failed; keep the reported backup for recovery."
+                        )
+                    error = str(result.get("error", "Unknown error.")).rstrip(".")
+                    backup_note = ""
+                    if data.get("backup"):
+                        label = (
+                            "Attempted source backup" if kind == "restore" else "Recovery backup"
+                        )
+                        backup_note += f" {label}: {data['backup']}."
+                    if data.get("safety_backup"):
+                        backup_note += f" Pre-restore safety backup: {data['safety_backup']}."
                     self.views_status.emit(
-                        f"Folder view update failed: {result.get('error', 'unknown error')}",
-                        8000,
+                        f"Folder view update failed: {error}.{rollback}{backup_note}",
+                        12000,
+                    )
+                    self.views_task_changed.emit(
+                        json.dumps({"kind": kind, "state": "failed", "data": data})
                     )
             except Exception as e:
                 LOG.exception("Folder view task failed")
-                self.views_status.emit(f"Folder view update failed: {e}", 8000)
+                self.views_status.emit(f"Folder view update failed: {e}", 12000)
+                self.views_task_changed.emit(
+                    json.dumps({"kind": kind, "state": "failed", "error": str(e)})
+                )
             finally:
                 # Queued back to the GUI thread; restarts the autosize worker
                 # if the setting is enabled.
@@ -307,16 +359,38 @@ class VireloBridge(QObject):
 
         # Not a daemon: shutdown joins it so registry work is never killed
         # mid-write (see MainWindow._stop_background_threads).
+        self.views_task_changed.emit(json.dumps({"kind": kind, "state": "started"}))
         self._views_thread = threading.Thread(target=work, name="VireloViewTask")
-        self._views_thread.start()
+        try:
+            self._views_thread.start()
+        except Exception as exc:
+            LOG.exception("Starting folder view task failed")
+            self.views_task_changed.emit(
+                json.dumps({"kind": kind, "state": "failed", "error": str(exc)})
+            )
+            self.explorer_service_restart.emit()
+            return json.dumps({"ok": False, "error": f"Folder view task could not start: {exc}"})
         return json.dumps({"ok": True, "data": {"started": True}})
 
-    def wait_for_view_task(self, timeout: float = 10.0) -> None:
-        """Block until any in-flight folder view task finishes (shutdown path)."""
+    def is_view_task_running(self) -> bool:
+        """Return whether a folder-view registry task is still running."""
+        thread = self._views_thread
+        return thread is not None and thread.is_alive()
+
+    def wait_for_view_task(self, timeout: float | None = None) -> bool:
+        """Wait for a folder-view task and report whether it has finished."""
         thread = self._views_thread
         if thread is not None and thread.is_alive():
             LOG.info("Waiting for folder view task to finish before shutdown")
             thread.join(timeout)
+            if thread.is_alive():
+                if timeout is not None:
+                    LOG.warning(
+                        "Folder view task is still running after %.1f seconds.",
+                        timeout,
+                    )
+                return False
+        return True
 
     # --- Window Command Slot ---
 
@@ -356,7 +430,11 @@ class VireloBridge(QObject):
             mw._hotkey_listener.update_press_limit(applied["snap_presses"])
 
         if "snap_key" in applied and hasattr(mw, "_hotkey_listener"):
-            mw._hotkey_listener.update_binding(applied["snap_key"])
+            if mw._hotkey_listener.update_binding(applied["snap_key"]) is False:
+                self.snap_status.emit(
+                    "The setting was saved, but the global snap-key hook could not be updated.",
+                    6000,
+                )
 
         if "restore_key" in applied and hasattr(mw, "_hotkey_listener"):
             mw._hotkey_listener.update_restore_key(applied["restore_key"])
@@ -365,21 +443,44 @@ class VireloBridge(QObject):
             mw._apply_theme_mode(applied["theme"])
 
         if "run_at_startup" in applied:
+            desired_startup = bool(applied["run_at_startup"])
             try:
-                from virelo.app.window import create_startup_shortcut, remove_startup_shortcut
+                from virelo.app.window import (
+                    create_startup_shortcut,
+                    remove_startup_shortcut,
+                    startup_shortcut_exists,
+                )
 
-                if applied["run_at_startup"]:
+                if desired_startup:
                     create_startup_shortcut()
                 else:
                     remove_startup_shortcut()
-            except Exception:
+            except Exception as shortcut_error:
                 LOG.exception("Startup shortcut error")
-                self.snap_status.emit("Failed to update startup shortcut.", 5000)
+                actual_startup = startup_shortcut_exists()
+                try:
+                    correction = self._state.persist_immediate({"run_at_startup": actual_startup})
+                    if not correction.get("ok"):
+                        raise OSError(str(correction.get("error", "Unknown settings error.")))
+                    applied["run_at_startup"] = actual_startup
+                    state_label = "enabled" if actual_startup else "disabled"
+                    self.snap_status.emit(
+                        "Could not update the startup shortcut, so launch at login "
+                        f"remains {state_label}: {shortcut_error}",
+                        7000,
+                    )
+                except Exception as correction_error:
+                    LOG.exception("Reconciling the startup setting failed")
+                    self.snap_status.emit(
+                        "Could not update the startup shortcut or reconcile its setting: "
+                        f"{correction_error}",
+                        7000,
+                    )
 
         if "minimize_to_tray" in applied:
             mw.minimize_to_tray_on_exit = bool(applied["minimize_to_tray"])
 
         if "run_at_startup" in applied:
-            mw.action_run_at_startup.setChecked(bool(applied["run_at_startup"]))
+            mw.action_run_at_startup.setChecked(bool(self._state.get_all()["run_at_startup"]))
         if "minimize_to_tray" in applied:
             mw.action_minimize_on_exit.setChecked(bool(applied["minimize_to_tray"]))

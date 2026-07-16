@@ -8,6 +8,8 @@ values.
 """
 
 import json
+from collections.abc import Callable
+from typing import Any
 
 from virelo.app.config import DEFAULTS, normalize_snap_presses
 from virelo.platform.theme import normalize_theme_mode
@@ -15,6 +17,32 @@ from virelo.settings.persistence import Settings
 
 _VALID_ACCENTS = ("slate", "teal", "blue", "rust", "purple")
 _VALID_DENSITIES = ("compact", "cozy", "comfortable")
+
+
+def _hotkey_name(value) -> str:
+    """Validate and normalize a keyboard-library key name."""
+    if not isinstance(value, str):
+        raise ValueError("The key name must be text.")
+    key = value.strip().lower()
+    if not key:
+        raise ValueError("The key name cannot be empty.")
+    if len(key) > 64 or any(ord(character) < 32 for character in key):
+        raise ValueError("The key name contains unsupported characters.")
+
+    # The keyboard package can reject names more precisely on Windows. Unit
+    # test and documentation environments may provide only a lightweight stub,
+    # so the syntax checks above remain the portable minimum.
+    try:
+        import keyboard
+
+        resolver = getattr(keyboard, "key_to_scan_codes", None)
+        if callable(resolver):
+            resolver(key)
+    except (KeyError, ValueError) as exc:
+        raise ValueError(f"The key name is not recognized: {key}.") from exc
+    except (ImportError, OSError):
+        pass
+    return key
 
 
 def _strict_bool(value):
@@ -53,9 +81,9 @@ class SettingsState:
     """
 
     # Exhaustive key list with (type_coercer, validator_range_or_None)
-    KEYS = {
-        "snap_key": (str, None),
-        "restore_key": (str, None),
+    KEYS: dict[str, tuple[Callable[[Any], Any], tuple[int, int] | None]] = {
+        "snap_key": (_hotkey_name, None),
+        "restore_key": (_hotkey_name, None),
         "enable_snap": (_strict_bool, None),
         "snap_presses": (int, (1, 10)),
         "snap_interval": (int, (100, 5000)),
@@ -72,19 +100,24 @@ class SettingsState:
 
     def __init__(self, settings: Settings):
         self._settings = settings
-        self._draft = None  # None = no pending changes
+        self._draft: dict[str, Any] | None = None  # None = no pending changes
 
-    def get_all(self) -> dict:
+    def get_all(self) -> dict[str, Any]:
         """Return all settings as a JSON-serializable dict.
 
         Returns persisted settings overlaid with any draft values.
         Normalization applies after the overlay so draft values are
         also normalized.
         """
-        result = {}
+        result: dict[str, Any] = {}
         for key, (coercer, _) in self.KEYS.items():
             val = getattr(self._settings, key, DEFAULTS.get(key))
-            result[key] = coercer(val)
+            try:
+                result[key] = coercer(val)
+            except (TypeError, ValueError):
+                if key not in ("snap_key", "restore_key"):
+                    raise
+                result[key] = DEFAULTS[key]
         # Overlay draft values before normalization
         if self._draft:
             result.update(self._draft)
@@ -92,6 +125,12 @@ class SettingsState:
         result["theme"] = normalize_theme_mode(result["theme"], DEFAULTS["theme"])
         # Normalize snap_presses
         result["snap_presses"] = normalize_snap_presses(result["snap_presses"])
+        result["accent"] = str(result["accent"]).strip().lower()
+        if result["accent"] not in _VALID_ACCENTS:
+            result["accent"] = DEFAULTS["accent"]
+        result["density"] = str(result["density"]).strip().lower()
+        if result["density"] not in _VALID_DENSITIES:
+            result["density"] = DEFAULTS["density"]
         return result
 
     def get_json(self) -> str:
@@ -103,8 +142,13 @@ class SettingsState:
         """Return whether unsaved changes exist."""
         return self._draft is not None and len(self._draft) > 0
 
-    def apply_draft(self, data: dict) -> dict:
-        """Validate and store changes in draft (not persisted).
+    @property
+    def pending_changes(self) -> dict[str, Any]:
+        """Return a defensive copy of the validated pending settings."""
+        return dict(self._draft or {})
+
+    def validate_changes(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate changes without mutating draft or persisted settings.
 
         Returns {"ok": True, "applied": {key: value, ...}} on success.
         Returns {"ok": False, "error": "..."} on validation failure or
@@ -115,7 +159,7 @@ class SettingsState:
         if unknown:
             return {"ok": False, "error": f"Unknown keys: {unknown}"}
 
-        validated = {}
+        validated: dict[str, Any] = {}
         for key, value in data.items():
             coercer, bounds = self.KEYS[key]
             try:
@@ -143,20 +187,27 @@ class SettingsState:
                     coerced = DEFAULTS["density"]
             validated[key] = coerced
 
+        return {"ok": True, "applied": validated}
+
+    def apply_draft(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate and store changes in the draft without persisting them."""
+        result = self.validate_changes(data)
+        if not result.get("ok"):
+            return result
+        validated = dict(result["applied"])
+
         if self._draft is None:
             self._draft = {}
         self._draft.update(validated)
 
         return {"ok": True, "applied": validated}
 
-    def commit_draft(self) -> dict:
+    def commit_draft(self) -> dict[str, Any]:
         """Persist draft to QSettings and clear draft. Returns applied changes."""
         if not self._draft:
             return {"ok": True, "applied": {}}
-        for key, value in self._draft.items():
-            setattr(self._settings, key, value)
-        self._settings.save()
         applied = dict(self._draft)
+        self._persist_with_rollback(applied)
         self._draft = None
         return {"ok": True, "applied": applied}
 
@@ -164,10 +215,47 @@ class SettingsState:
         """Clear draft without persisting."""
         self._draft = None
 
-    def reset_to_defaults(self) -> dict:
-        """Reset all settings to defaults and return the new state."""
+    def persist_immediate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Persist selected values without committing unrelated draft changes."""
+        original_draft = dict(self._draft) if self._draft else None
         self._draft = None
-        for key, val in DEFAULTS.items():
-            setattr(self._settings, key, val)
-        self._settings.save()
+        try:
+            result = self.apply_draft(data)
+            if not result.get("ok"):
+                return result
+            applied: dict[str, Any] = dict(self._draft or {})
+            self._persist_with_rollback(applied)
+        finally:
+            self._draft = original_draft
+
+        if self._draft:
+            for key in applied:
+                self._draft.pop(key, None)
+            if not self._draft:
+                self._draft = None
+        return {"ok": True, "applied": applied}
+
+    def reset_to_defaults(self) -> dict[str, Any]:
+        """Reset all settings to defaults and return the new state."""
+        self._persist_with_rollback(DEFAULTS)
+        self._draft = None
         return self.get_all()
+
+    def _persist_with_rollback(self, values: dict[str, Any]) -> None:
+        """Persist values and restore the prior state if the save fails."""
+        previous = {key: getattr(self._settings, key) for key in values}
+        for key, value in values.items():
+            setattr(self._settings, key, value)
+        try:
+            self._settings.save()
+        except Exception as save_error:
+            for key, value in previous.items():
+                setattr(self._settings, key, value)
+            try:
+                self._settings.save()
+            except Exception as rollback_error:
+                raise OSError(
+                    f"Settings save failed, and restoring the prior settings also failed: "
+                    f"{rollback_error}"
+                ) from save_error
+            raise

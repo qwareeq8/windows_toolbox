@@ -20,6 +20,7 @@ import os
 from collections.abc import Iterable
 from ctypes import c_uint, c_void_p, sizeof, wintypes
 from dataclasses import dataclass, field
+from typing import Any
 
 import comtypes
 import comtypes.client
@@ -147,7 +148,7 @@ class IColumnManager(IUnknown):
     ]
 
 
-def _get_com_identity(dispatch: object) -> int:
+def _get_com_identity(dispatch: Any) -> int:
     """
     Get the unique COM identity (IUnknown pointer value) for a dispatch object.
 
@@ -175,6 +176,33 @@ def _get_view_mode_safe(dispatch: object) -> int | None:
         return int(getattr(doc, "CurrentViewMode"))
     except Exception:
         return None
+
+
+def _resolve_shell_window_location(dispatch: object) -> str:
+    """Return the best path-like identity exposed by a Shell window."""
+    try:
+        location_url = getattr(dispatch, "LocationURL", None)
+        if isinstance(location_url, str) and location_url.strip():
+            return location_url.strip()
+    except Exception:
+        pass
+
+    try:
+        document = getattr(dispatch, "Document", None)
+        if document is not None:
+            document_path = str(document.Folder.Self.Path or "").strip()
+            if document_path:
+                return document_path
+    except Exception:
+        pass
+
+    try:
+        location_name = getattr(dispatch, "LocationName", None)
+        if isinstance(location_name, str):
+            return location_name.strip()
+    except Exception:
+        pass
+    return ""
 
 
 @dataclass(frozen=True)
@@ -237,7 +265,7 @@ def iter_shell_windows(logger: logging.Logger) -> Iterable[ShellWindow]:
             hwnd = int(w.HWND)
             full_name = str(getattr(w, "FullName", "") or "")
             exe = os.path.basename(full_name).lower()
-            loc = str(getattr(w, "LocationURL", "") or "")
+            loc = _resolve_shell_window_location(w)
             tab_id = _get_com_identity(w)
             view_mode = _get_view_mode_safe(w)
             yield ShellWindow(
@@ -338,11 +366,45 @@ def find_explorer_tab_by_id(logger: logging.Logger, tab_id: int) -> ShellWindow 
     """
     Find a specific Explorer tab by its tab_id (COM identity).
 
-    This is the preferred method for targeting a specific tab.
+    Modern worker calls retain and match IUnknown directly instead.
     """
     for sw in iter_explorer_tabs(logger):
         if sw.tab_id == tab_id:
             return sw
+    return None
+
+
+def _dispatch_matches_identity(dispatch: Any, tab_identity: object) -> bool:
+    """Compare a comtypes dispatch with a retained pywin32 IUnknown."""
+    import pythoncom
+
+    unknown = dispatch.QueryInterface(IUnknown)
+    address = int(cast(unknown, c_void_p).value or 0)
+    if not address:
+        return False
+    candidate = pythoncom.ObjectFromAddress(address, pythoncom.IID_IUnknown)
+    return bool(candidate == tab_identity)
+
+
+def find_explorer_tab_by_identity(
+    logger: logging.Logger,
+    hwnd: int,
+    tab_identity: object,
+) -> ShellWindow | None:
+    """Find one tab by retained IUnknown identity, never by path or order."""
+    for shell_window in iter_explorer_tabs(logger):
+        if shell_window.hwnd != hwnd:
+            continue
+        try:
+            if _dispatch_matches_identity(shell_window.dispatch, tab_identity):
+                return shell_window
+        except Exception as exc:
+            logger.debug(
+                "find_explorer_tab_by_identity: identity comparison failed for hwnd=%s: %r",
+                hwnd,
+                exc,
+            )
+    logger.debug("find_explorer_tab_by_identity: no identity match for hwnd=%s", hwnd)
     return None
 
 
@@ -352,8 +414,8 @@ def find_explorer_tab_by_path(
     """
     Find a specific Explorer tab by HWND and path.
 
-    This is the preferred method when targeting a specific tab in Windows 11
-    where multiple tabs can share the same HWND.
+    This is a legacy compatibility fallback. It is ambiguous when multiple
+    tabs under the same HWND show the same path.
 
     Args:
         logger: Logger instance
@@ -363,21 +425,7 @@ def find_explorer_tab_by_path(
     Returns:
         ShellWindow for the matching tab, or None if not found
     """
-    from urllib.parse import unquote
-
-    def normalize_path(p: str) -> str:
-        """Normalize a path for comparison."""
-        if not p:
-            return ""
-        # Handle file:// URLs
-        if p.startswith("file:///"):
-            p = unquote(p[8:])  # Strip file:/// and decode
-        elif p.startswith("file://"):
-            p = unquote(p[7:])
-        # Normalize slashes and case
-        return p.replace("/", "\\").lower().rstrip("\\")
-
-    target_normalized = normalize_path(target_path)
+    target_normalized = canonicalize_path(target_path)
 
     candidates = [sw for sw in iter_explorer_tabs(logger) if sw.hwnd == hwnd]
 
@@ -387,7 +435,7 @@ def find_explorer_tab_by_path(
 
     # Find exact path match
     for sw in candidates:
-        sw_path = normalize_path(sw.location_url)
+        sw_path = canonicalize_path(sw.location_url)
         if sw_path == target_normalized:
             logger.debug(
                 "find_explorer_tab_by_path: found exact match hwnd=%s path='%s'", hwnd, target_path
@@ -414,7 +462,7 @@ def _format_propertykey(pk: PROPERTYKEY) -> str:
 
 def query_service_raw(
     logger: logging.Logger,
-    dispatch_obj: object,
+    dispatch_obj: Any,
     service_guid: GUID,
     iid: GUID,
 ) -> c_void_p:
@@ -459,7 +507,7 @@ def get_service_provider_sources(window_dispatch: object) -> list[tuple[str, obj
 
 
 def _dump_visible_columns(
-    logger: logging.Logger, cm: POINTER(IColumnManager), keys: ctypes.Array, n: int
+    logger: logging.Logger, cm: POINTER[IColumnManager], keys: ctypes.Array, n: int
 ) -> None:
     info = CM_COLUMNINFO()
     info.cbSize = sizeof(CM_COLUMNINFO)
@@ -502,7 +550,7 @@ def autosize_visible_columns_for_dispatch(
     window_dispatch: object,
     dump_columns: bool,
 ) -> tuple[int, int]:
-    last_error: BaseException | None = None
+    last_error: Exception | None = None
     for source_name, src in get_service_provider_sources(window_dispatch):
         try:
             logger.debug("Autosize start using source=%s.", source_name)
@@ -562,7 +610,7 @@ def autosize_visible_columns_for_dispatch(
                 # the wrapper is garbage collected. An explicit Release() here
                 # would over-release the proxy by one.
                 del cm
-        except BaseException as e:
+        except Exception as e:
             last_error = e
             logger.debug("Autosize failed using source=%s. Error was: %r", source_name, e)
     if last_error is not None:
@@ -570,7 +618,7 @@ def autosize_visible_columns_for_dispatch(
     raise RuntimeError("Could not acquire IColumnManager from any service provider source.")
 
 
-def _is_transient_error(exc: BaseException) -> bool:
+def _is_transient_error(exc: Exception) -> bool:
     """
     Check if an exception represents a transient COM error.
 
@@ -630,9 +678,15 @@ def apply_to_window(
     """
     mode, name, err = get_view_mode_from_document(sw.dispatch)
     if mode is not None:
-        logger.info("HWND %d, Document view %d (%s), URL %s.", sw.hwnd, mode, name, sw.location_url)
+        logger.debug(
+            "HWND %d, Document view %d (%s), URL %s.",
+            sw.hwnd,
+            mode,
+            name,
+            sw.location_url,
+        )
     else:
-        logger.info("HWND %d, Document view UNKNOWN, %s, URL %s.", sw.hwnd, err, sw.location_url)
+        logger.debug("HWND %d, Document view UNKNOWN, %s, URL %s.", sw.hwnd, err, sw.location_url)
     if require_details and mode is not None and mode != FVM_DETAILS:
         logger.info("Skip HWND %d, effective view was %d (%s).", sw.hwnd, mode, name)
         return (0, 0, mode)
@@ -649,6 +703,7 @@ def autosize_explorer_columns(
     dump_columns: bool = False,
     target_path: str | None = None,
     caller_owns_com: bool = False,
+    tab_identity: object | None = None,
 ) -> tuple[bool, str]:
     """
     Auto-size visible columns for a given Explorer window HWND using COM.
@@ -659,27 +714,39 @@ def autosize_explorer_columns(
         allow_keyboard_fallback: Ignored, kept for compatibility
         require_details: Only autosize if view is in Details mode
         dump_columns: Log column info for debugging
-        target_path: If provided, find the tab matching this path (for Windows 11 tabs)
+        target_path: Legacy path selector, used only when tab_identity is absent
         caller_owns_com: If True, caller manages COM init/uninit (worker thread ownership)
+        tab_identity: Retained worker-STA IUnknown identity for exact tab targeting
     """
-    LOG.info("autosize_explorer_columns: start hwnd=%s target_path=%s", hwnd, target_path)
+    LOG.debug("autosize_explorer_columns: start hwnd=%s target_path=%s", hwnd, target_path)
 
     if not caller_owns_com:
         comtypes.CoInitialize()
 
     try:
-        # Find the specific tab by path if provided, otherwise use active tab
-        if target_path:
+        # Modern worker calls must target the retained IUnknown identity. Do not
+        # fall back to a path because duplicate same-path tabs are valid.
+        if tab_identity is not None:
+            sw = find_explorer_tab_by_identity(LOG, hwnd, tab_identity)
+        elif target_path:
             sw = find_explorer_tab_by_path(LOG, hwnd, target_path)
         else:
             sw = find_explorer_window_by_hwnd(LOG, hwnd)
         if sw is None:
-            LOG.info(
+            LOG.debug(
                 "autosize_explorer_columns: Explorer window not found for HWND %s path=%s",
                 hwnd,
                 target_path,
             )
             return False, "not-found"
+        if tab_identity is not None and target_path:
+            observed_path = canonicalize_path(sw.location_url)
+            if observed_path != canonicalize_path(target_path):
+                LOG.debug(
+                    "autosize_explorer_columns: exact tab navigated before autosize, hwnd=%s",
+                    hwnd,
+                )
+                return False, "not-found"
         attempted, succeeded, mode = apply_to_window(
             LOG,
             sw,
@@ -689,9 +756,9 @@ def autosize_explorer_columns(
         if require_details and mode is not None and mode != FVM_DETAILS:
             # Not a failure to retry: the view simply is not Details.
             return False, "not-details"
-        ok = attempted > 0 and succeeded > 0
+        ok = attempted > 0 and succeeded == attempted
         return (ok, "com" if ok else "none")
-    except BaseException as e:
+    except Exception as e:
         LOG.debug("autosize_explorer_columns: exception: %r", e, exc_info=True)
         return False, "error"
     finally:
@@ -780,16 +847,22 @@ def autosize_explorer_columns_detailed(
             require_details=require_details,
             dump_columns=dump_columns,
         )
-        ok = attempted > 0 and succeeded > 0
+        ok = attempted > 0 and succeeded == attempted
+        if attempted <= 0:
+            error_message = "No visible columns were available to autosize"
+        elif succeeded < attempted:
+            error_message = f"Autosized {succeeded} of {attempted} visible columns"
+        else:
+            error_message = ""
         return AutosizeResult(
             success=ok,
             method="com" if ok else "none",
-            transient_error=False,
-            error_message="" if ok else "SetColumnInfo failed for all columns",
+            transient_error=attempted > 0 and succeeded < attempted,
+            error_message=error_message,
             columns_attempted=attempted,
             columns_succeeded=succeeded,
         )
-    except BaseException as e:
+    except Exception as e:
         LOG.debug("autosize_explorer_columns_detailed: exception: %r", e, exc_info=True)
         is_transient = _is_transient_error(e)
         return AutosizeResult(

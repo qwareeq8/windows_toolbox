@@ -4,12 +4,31 @@
  * In release mode, QWebChannel is loaded via qrc:///qtwebchannel/qwebchannel.js
  * and the Python VireloBridge QObject is available as channel.objects.bridge.
  *
- * In dev mode (Vite dev server), QWebChannel may not be available.
- * getBridge() returns a mock bridge with no-op methods so the UI renders.
+ * In dev mode (Vite dev server), QWebChannel may not be available. A mock
+ * bridge is allowed only in that development build.
  */
 
 let _bridge = null;
 let _bridgePromise = null;
+
+function createMockSignal() {
+  const handlers = new Set();
+  return {
+    connect: (handler) => handlers.add(handler),
+    disconnect: (handler) => handlers.delete(handler),
+    emit: (...args) => handlers.forEach((handler) => handler(...args)),
+  };
+}
+
+const mockSignals = {
+  settings_changed: createMockSignal(),
+  theme_applied: createMockSignal(),
+  snap_status: createMockSignal(),
+  capture_status: createMockSignal(),
+  dirty_changed: createMockSignal(),
+  views_status: createMockSignal(),
+  views_task_changed: createMockSignal(),
+};
 
 const MOCK_SETTINGS = {
   snap_key: "shift",
@@ -30,8 +49,7 @@ const MOCK_SETTINGS = {
 
 const MOCK_BRIDGE = {
   get_settings: (cb) => cb(JSON.stringify({ ok: true, data: MOCK_SETTINGS })),
-  save_settings: (json, cb) =>
-    cb(JSON.stringify({ ok: true, applied: JSON.parse(json) })),
+  save_settings: (json, cb) => cb(JSON.stringify({ ok: true, applied: JSON.parse(json) })),
   commit_draft: (cb) => cb(JSON.stringify({ ok: true, applied: {} })),
   discard_draft: (cb) => cb(JSON.stringify({ ok: true })),
   has_draft: (cb) => cb(JSON.stringify({ ok: true, data: false })),
@@ -44,40 +62,73 @@ const MOCK_BRIDGE = {
     cb(JSON.stringify({ ok: true, data: { mode: "dark", effective: "dark" } })),
   get_launch_at_login: (cb) => cb(JSON.stringify({ ok: true, data: false })),
   setWindowCommand: (cmd, cb) => cb(JSON.stringify({ ok: true })),
-  apply_details_view: (cb) =>
-    setTimeout(() => cb(JSON.stringify({ ok: true, data: {} })), 200),
-  reset_folder_views: (cb) =>
-    setTimeout(() => cb(JSON.stringify({ ok: true, data: {} })), 200),
-  settings_changed: { connect: () => {}, disconnect: () => {} },
-  theme_applied: { connect: () => {}, disconnect: () => {} },
-  snap_status: { connect: () => {}, disconnect: () => {} },
-  capture_status: { connect: () => {}, disconnect: () => {} },
-  dirty_changed: { connect: () => {}, disconnect: () => {} },
-  views_status: { connect: () => {}, disconnect: () => {} },
+  apply_details_view: (cb) => runMockViewTask("apply", cb),
+  reset_folder_views: (cb) => runMockViewTask("reset", cb),
+  restore_folder_views: (cb) => runMockViewTask("restore", cb),
+  ...mockSignals,
 };
+
+function runMockViewTask(kind, callback) {
+  mockSignals.views_task_changed.emit(JSON.stringify({ kind, state: "started" }));
+  callback(JSON.stringify({ ok: true, data: { started: true } }));
+  setTimeout(() => {
+    mockSignals.views_task_changed.emit(JSON.stringify({ kind, state: "succeeded" }));
+    mockSignals.views_status.emit("Development preview completed the folder view task.", 3000);
+  }, 400);
+}
+
+function resolveDevelopmentMock(resolve, reason) {
+  console.warn(`[bridge] ${reason} Using the development mock bridge.`);
+  _bridge = MOCK_BRIDGE;
+  resolve(_bridge);
+}
 
 function _initBridge() {
   if (_bridgePromise) return _bridgePromise;
 
-  _bridgePromise = new Promise((resolve) => {
-    if (typeof QWebChannel === "undefined") {
-      console.warn(
-        "[bridge] QWebChannel not available — using mock bridge (dev mode)",
-      );
-      _bridge = MOCK_BRIDGE;
-      resolve(_bridge);
+  const pending = new Promise((resolve, reject) => {
+    const QWebChannelConstructor = globalThis.QWebChannel;
+    const transport = globalThis.qt?.webChannelTransport;
+    if (!QWebChannelConstructor) {
+      if (import.meta.env.DEV) {
+        resolveDevelopmentMock(resolve, "QWebChannel is not available.");
+      } else {
+        reject(new Error("QWebChannel is not available in this release build."));
+      }
       return;
     }
 
-    // eslint-disable-next-line no-undef
-    new QWebChannel(qt.webChannelTransport, (channel) => {
-      _bridge = channel.objects.bridge;
-      if (!_bridge) {
-        console.error('[bridge] No "bridge" object found in QWebChannel');
-        _bridge = MOCK_BRIDGE;
+    if (!transport) {
+      if (import.meta.env.DEV) {
+        resolveDevelopmentMock(resolve, "The Qt WebChannel transport is not available.");
+      } else {
+        reject(new Error("The Qt WebChannel transport is not available."));
       }
-      resolve(_bridge);
-    });
+      return;
+    }
+
+    try {
+      new QWebChannelConstructor(transport, (channel) => {
+        _bridge = channel.objects.bridge;
+        if (!_bridge) {
+          console.error('[bridge] No "bridge" object found in QWebChannel');
+          if (import.meta.env.DEV) {
+            resolveDevelopmentMock(resolve, "The backend bridge object is missing.");
+          } else {
+            reject(new Error("The backend bridge object is missing."));
+          }
+          return;
+        }
+        resolve(_bridge);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+  _bridgePromise = pending.catch((error) => {
+    _bridgePromise = null;
+    throw error;
   });
 
   return _bridgePromise;
@@ -85,14 +136,4 @@ function _initBridge() {
 
 export function getBridge() {
   return _initBridge();
-}
-
-// Returns the resolved bridge if available, otherwise the mock. Safe to call
-// outside React, for example from bootstrap timeout fallbacks.
-export function getBridgeSync() {
-  return _bridge || MOCK_BRIDGE;
-}
-
-export function useBridgeSync() {
-  return getBridgeSync();
 }

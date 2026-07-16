@@ -116,7 +116,6 @@ def test_restore_maximized_window():
     from ctypes import wintypes
 
     import win32con
-    import win32gui
 
     from virelo.services.snap import SnapRestoreController
 
@@ -151,16 +150,13 @@ def test_restore_maximized_window():
         patch("virelo.services.snap.get_monitor_rect", return_value=(0, 0, 1920, 1080)),
         patch("virelo.services.snap.USER32") as mock_user32,
         patch("PySide6.QtWidgets.QApplication", mock_qapp, create=True),
+        patch("virelo.services.snap.win32gui.ShowWindow") as mock_show_window,
     ):
         mock_user32.GetWindowRect.side_effect = fake_get_window_rect
-
-        # Reset ShowWindow mock to track calls cleanly
-        win32gui.ShowWindow.reset_mock()
-
         mgr._restore(test_hwnd)
 
     # The key assertion: ShowWindow called with SW_MAXIMIZE because was_maximized=True
-    win32gui.ShowWindow.assert_called_once_with(test_hwnd, win32con.SW_MAXIMIZE)
+    mock_show_window.assert_called_once_with(test_hwnd, win32con.SW_MAXIMIZE)
 
     # Verify the hwnd was removed from _orig_sizes (consumed by restore)
     assert test_hwnd not in mgr._orig_sizes

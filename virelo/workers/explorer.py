@@ -13,19 +13,110 @@ COM Threading Constraint (D-07):
 import logging
 import threading
 import time
-import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any, Protocol, TypedDict
 
 from virelo.platform.paths import canonicalize_path
 
 LOG = logging.getLogger("Virelo")
+
+
+class _ServiceAutosize(Protocol):
+    """Describe the service callback that accepts a retained COM identity."""
+
+    def __call__(
+        self,
+        top_hwnd: int,
+        target_path: str | None = None,
+        caller_owns_com: bool = False,
+        tab_identity: object | None = None,
+    ) -> tuple[bool, str]: ...
+
+
+_EngineAutosize = Callable[[int, int, str | None], tuple[bool, str, bool]]
+
+
+class _ShellState(TypedDict):
+    """Hold the worker-owned Shell.Application proxy and retry deadline."""
+
+    app: Any | None
+    retry_at: float
+
+
+@dataclass
+class _ComIdentityEntry:
+    """Keep one worker-STA COM identity and its latest dispatch proxy alive."""
+
+    tab_id: int
+    identity: Any
+    dispatch: Any
+
+
+class _ComIdentityRegistry:
+    """Assign stable local IDs by IUnknown equality inside one worker STA.
+
+    PyIUnknown wrappers are unhashable, so identity comparison deliberately
+    uses COM equality instead of Python object identity or enumeration order.
+    Entries are pruned only after a complete Shell.Windows poll.
+    """
+
+    def __init__(self) -> None:
+        self._entries: list[_ComIdentityEntry] = []
+        self._next_tab_id = 1
+        self._seen: set[int] | None = None
+
+    def begin_poll(self) -> None:
+        """Begin tracking identities observed by one enumeration poll."""
+        self._seen = set()
+
+    def identify(self, identity: Any, dispatch: Any) -> int:
+        """Return a stable worker-local ID for one IUnknown identity."""
+        if self._seen is None:
+            raise RuntimeError("COM identity lookup occurred outside an active poll.")
+        for entry in self._entries:
+            try:
+                matches = bool(identity == entry.identity)
+            except Exception:
+                matches = False
+            if matches:
+                entry.dispatch = dispatch
+                self._seen.add(entry.tab_id)
+                return entry.tab_id
+
+        tab_id = self._next_tab_id
+        self._next_tab_id += 1
+        self._entries.append(_ComIdentityEntry(tab_id, identity, dispatch))
+        self._seen.add(tab_id)
+        return tab_id
+
+    def identity_for(self, tab_id: int) -> Any | None:
+        """Return the retained IUnknown wrapper for a worker-local tab ID."""
+        for entry in self._entries:
+            if entry.tab_id == tab_id:
+                return entry.identity
+        return None
+
+    def finish_poll(self, *, complete: bool) -> None:
+        """Finish a poll, pruning unseen identities only when it was complete."""
+        seen = self._seen
+        self._seen = None
+        if complete and seen is not None:
+            self._entries = [entry for entry in self._entries if entry.tab_id in seen]
+
+    def clear(self) -> None:
+        """Release every worker-owned COM reference before invalidation or exit."""
+        self._entries.clear()
+        self._seen = None
+
 
 # Rate limiting constants
 MIN_AUTOSIZE_INTERVAL_PER_TAB_MS = 200  # Minimum ms between autosize attempts per tab
 GLOBAL_AUTOSIZE_RATE_LIMIT_PER_SEC = 10  # Max global autosize attempts per second
 SETTLE_DELAY_MS = 150  # Time path must be stable before autosize
 DEBOUNCE_DELAY_MS = 50  # Initial delay before first autosize attempt after navigation
+NONINTERACTIVE_RETRY_SECONDS = 0.5
+FVM_DETAILS = 4
 
 # Circuit breaker constants
 CIRCUIT_BREAKER_THRESHOLD = 5  # Failures before circuit opens
@@ -117,10 +208,7 @@ def _resolve_explorer_path(window):
     try:
         loc = getattr(window, "LocationURL", None)
         if isinstance(loc, str):
-            if loc.lower().startswith("file:///"):
-                path = urllib.parse.unquote(loc.replace("file:///", ""))
-            else:
-                path = str(loc)
+            path = loc
     except Exception:
         pass
     if not path:
@@ -173,9 +261,9 @@ class ExplorerAutosizeEngine:
 
     def __init__(
         self,
-        iter_tabs: Callable[[], list],
-        autosize_try: Callable[[int, str | None], tuple[bool, str, bool]],
-        autosize_full: Callable[[int, str | None], tuple[bool, str, bool]],
+        iter_tabs: Callable[[], list[tuple[Any, ...]]],
+        autosize_try: _EngineAutosize,
+        autosize_full: _EngineAutosize,
         is_window_interactive: Callable[[int], bool],
         schedule: tuple[float, ...] | None = None,
         persist_paths: bool = False,
@@ -185,9 +273,9 @@ class ExplorerAutosizeEngine:
 
         Args:
             iter_tabs: Callable returning list of (hwnd, tab_id, path, view_mode) tuples
-            autosize_try: Quick autosize attempt (hwnd, path),
+            autosize_try: Quick autosize attempt (hwnd, tab_id, path),
                 returns (success, method, is_transient)
-            autosize_full: Full autosize with all fallbacks (hwnd, path),
+            autosize_full: Full autosize with all fallbacks (hwnd, tab_id, path),
                 returns (success, method, is_transient)
             is_window_interactive: Check if window is visible and ready
             schedule: Retry schedule as tuple of delays in seconds
@@ -202,14 +290,15 @@ class ExplorerAutosizeEngine:
         self._schedule = schedule if schedule else self.DEFAULT_SCHEDULE
         self._persist_paths = persist_paths
 
-        # Per-tab state: {(hwnd, path): TabAutosizeState}
-        self.tab_state: dict[tuple[int, str], TabAutosizeState] = {}
+        # Per-tab state keyed by the supplied COM identity. HWND remains part
+        # of the key as a defensive namespace if an identity is ever reused.
+        self.tab_state: dict[tuple[int, int], TabAutosizeState] = {}
 
         # Deduplication cache with TTL: {DedupeKey: DedupeEntry}
         self._dedupe_cache: dict[DedupeKey, DedupeEntry] = {}
 
         # Global rate limiting
-        self._global_autosize_times: list = []  # Recent autosize timestamps
+        self._global_autosize_times: list[float] = []  # Recent autosize timestamps
 
         # Navigation token counter (increments on each navigation)
         self._token_counter = 0
@@ -226,7 +315,7 @@ class ExplorerAutosizeEngine:
         # actually changing; a resident tray app must not enumerate COM
         # windows 6+ times per second around the clock.
         self._last_activity = 0.0
-        self._prev_live_keys: set = set()
+        self._prev_live_signatures: set = set()
 
     def _next_token(self) -> int:
         """Generate the next navigation token."""
@@ -297,7 +386,7 @@ class ExplorerAutosizeEngine:
         Process one step of the tab-aware autosize engine.
 
         Args:
-            now: Current timestamp (time.time())
+            now: Current monotonic timestamp.
 
         Returns:
             Recommended delay before next step
@@ -316,18 +405,18 @@ class ExplorerAutosizeEngine:
         if tabs:
             log.debug("ExplorerAutosizeEngine.step: found %d Explorer tabs", len(tabs))
 
-        # Track live tabs by (hwnd, path) - this is the stable identity
-        live_tab_keys = set()
+        live_tab_keys: set[tuple[int, int]] = set()
+        live_tab_signatures: set[tuple[int, int, str, int | None]] = set()
 
         for tab_info in tabs:
             # Unpack tab info: (hwnd, tab_id, path, view_mode, [dispatch])
-            dispatch = None
+            supplied_tab_id: Any = None
             if len(tab_info) >= 5:
-                hwnd, _, raw_path, view_mode, dispatch = tab_info[:5]
+                hwnd, supplied_tab_id, raw_path, view_mode = tab_info[:4]
             elif len(tab_info) >= 4:
-                hwnd, _, raw_path, view_mode = tab_info[:4]
+                hwnd, supplied_tab_id, raw_path, view_mode = tab_info[:4]
             elif len(tab_info) >= 3:
-                hwnd, _, raw_path = tab_info[:3]
+                hwnd, supplied_tab_id, raw_path = tab_info[:3]
                 view_mode = None
             elif len(tab_info) >= 2:
                 # Legacy format: (hwnd, path)
@@ -338,60 +427,116 @@ class ExplorerAutosizeEngine:
 
             raw_path = "" if raw_path is None else str(raw_path)
             canonical_path = canonicalize_path(raw_path)
+            try:
+                tab_id = int(supplied_tab_id)
+            except (TypeError, ValueError):
+                # Legacy callers do not provide a COM identity. Keep their
+                # previous path-based behavior without weakening modern tabs.
+                tab_id = hash((int(hwnd), canonical_path))
 
-            # Use (hwnd, canonical_path) as stable identity key
-            tab_key = (hwnd, canonical_path)
+            tab_key = (int(hwnd), tab_id)
             live_tab_keys.add(tab_key)
+            live_tab_signatures.add((int(hwnd), tab_id, canonical_path, view_mode))
 
-            # Get or create tab state using the stable key
             state = self.tab_state.get(tab_key)
-            is_new_entry = state is None
 
-            if is_new_entry:
-                # New (hwnd, path) combination - either new tab or navigation
+            if state is None:
                 state = TabAutosizeState(
-                    tab_id=hash(tab_key),  # Use hash of key as numeric ID
-                    hwnd=hwnd,
+                    tab_id=tab_id,
+                    hwnd=int(hwnd),
                     path=canonical_path,
                     view_mode=view_mode,
+                    navigation_token=self._next_token(),
                     first_seen_at=now,
                     path_stable_since=now,
                 )
                 self.tab_state[tab_key] = state
-                log.info(
-                    "ExplorerAutosizeEngine.step: new (hwnd, path) entry hwnd=%s path='%s'",
-                    hwnd,
-                    canonical_path,
-                )
-
-                # Schedule debounced autosize
-                debounce_delay = DEBOUNCE_DELAY_MS / 1000.0
-                state.next_retry_at = now + debounce_delay
-                state.pending_retry = True
-
                 log.debug(
-                    "ExplorerAutosizeEngine.step: scheduled debounced autosize "
-                    "in %.3fs for hwnd=%s path='%s'",
-                    debounce_delay,
+                    "ExplorerAutosizeEngine.step: new tab hwnd=%s tab_id=%s path='%s'",
                     hwnd,
+                    tab_id,
                     canonical_path,
                 )
+
+                if view_mode in (None, FVM_DETAILS):
+                    debounce_delay = DEBOUNCE_DELAY_MS / 1000.0
+                    state.next_retry_at = now + debounce_delay
+                    state.pending_retry = True
+                    log.debug(
+                        "ExplorerAutosizeEngine.step: scheduled debounced autosize "
+                        "in %.3fs for hwnd=%s tab_id=%s path='%s'",
+                        debounce_delay,
+                        hwnd,
+                        tab_id,
+                        canonical_path,
+                    )
                 continue  # Don't attempt autosize this iteration
 
-            # Update view_mode if changed (might affect deduplication)
+            if canonical_path != state.path:
+                old_path = state.path
+                # A successful fit is scoped to one navigation, not to the
+                # path for the full deduplication TTL. Remove prior results for
+                # this destination so A -> B -> A triggers a fresh fit.
+                prior_destination_keys = [
+                    dedupe_entry_key
+                    for dedupe_entry_key in self._dedupe_cache
+                    if dedupe_entry_key.tab_id == state.tab_id
+                    and dedupe_entry_key.path == canonical_path
+                ]
+                for dedupe_entry_key in prior_destination_keys:
+                    self._dedupe_cache.pop(dedupe_entry_key, None)
+                state.path = canonical_path
+                state.view_mode = view_mode
+                state.navigation_token = self._next_token()
+                state.first_seen_at = now
+                state.path_stable_since = now
+                state.last_autosize_attempt = 0.0
+                state.retry_attempt = 0
+                state.consecutive_failures = 0
+                state.circuit_open_until = 0.0
+                state.pending_retry = view_mode in (None, FVM_DETAILS)
+                state.next_retry_at = now + (DEBOUNCE_DELAY_MS / 1000.0)
+                log.debug(
+                    "ExplorerAutosizeEngine.step: tab navigated hwnd=%s tab_id=%s '%s' -> '%s'",
+                    hwnd,
+                    tab_id,
+                    old_path,
+                    canonical_path,
+                )
+                continue
+
             if view_mode != state.view_mode:
+                old_view_mode = state.view_mode
                 log.debug(
                     "ExplorerAutosizeEngine.step: view mode changed "
-                    "for hwnd=%s path='%s': %s -> %s",
+                    "for hwnd=%s tab_id=%s path='%s': %s -> %s",
                     hwnd,
+                    tab_id,
                     canonical_path,
-                    state.view_mode,
+                    old_view_mode,
                     view_mode,
                 )
                 state.view_mode = view_mode
-                # Reset settle timer if view mode changes while pending
-                if state.pending_retry:
-                    state.path_stable_since = now
+                state.path_stable_since = now
+                if view_mode == FVM_DETAILS:
+                    # A previous Details-view result must not suppress a fresh
+                    # fit after the user leaves and returns to Details.
+                    self._dedupe_cache.pop(
+                        DedupeKey(
+                            tab_id=state.tab_id,
+                            path=canonical_path,
+                            view_mode=FVM_DETAILS,
+                        ),
+                        None,
+                    )
+                    state.pending_retry = True
+                    state.retry_attempt = 0
+                    state.consecutive_failures = 0
+                    state.circuit_open_until = 0.0
+                    state.next_retry_at = now + (DEBOUNCE_DELAY_MS / 1000.0)
+                elif view_mode is not None:
+                    state.pending_retry = False
+                continue
 
             # Re-arm a tab whose circuit-breaker cooldown has expired so the
             # cooldown actually leads to one more retry instead of parking the
@@ -407,7 +552,7 @@ class ExplorerAutosizeEngine:
                 state.circuit_open_until = 0.0
                 state.next_retry_at = now
                 state.path_stable_since = now
-                log.info(
+                log.debug(
                     "ExplorerAutosizeEngine.step: circuit cooldown elapsed, re-arming hwnd=%s",
                     hwnd,
                 )
@@ -423,6 +568,7 @@ class ExplorerAutosizeEngine:
                     hwnd,
                     state.circuit_open_until - now,
                 )
+                state.next_retry_at = state.circuit_open_until
                 continue
 
             # Check if debounce/retry timer has elapsed
@@ -448,15 +594,21 @@ class ExplorerAutosizeEngine:
                     hwnd,
                     canonical_path,
                 )
+                state.next_retry_at = state.last_autosize_attempt + per_tab_interval
                 continue
 
             # Check global rate limit
             if not self._check_global_rate_limit(now):
                 log.debug("ExplorerAutosizeEngine.step: global rate limit reached")
+                oldest_attempt = min(self._global_autosize_times, default=now)
+                state.next_retry_at = max(state.next_retry_at, oldest_attempt + 1.0)
                 continue
 
-            # Check deduplication using (hwnd, path, view_mode)
-            dedupe_key = DedupeKey(tab_id=hwnd, path=canonical_path, view_mode=view_mode)
+            dedupe_key = DedupeKey(
+                tab_id=state.tab_id,
+                path=canonical_path,
+                view_mode=view_mode,
+            )
             if self._is_dedupe_valid(dedupe_key, now):
                 log.debug(
                     "ExplorerAutosizeEngine.step: already autosized "
@@ -471,10 +623,11 @@ class ExplorerAutosizeEngine:
             # Check if window is interactive
             if not self._is_window_interactive(hwnd):
                 log.debug("ExplorerAutosizeEngine.step: hwnd=%s not interactive, skipping", hwnd)
+                state.next_retry_at = now + NONINTERACTIVE_RETRY_SECONDS
                 continue
 
             # Attempt autosize
-            log.info(
+            log.debug(
                 "ExplorerAutosizeEngine.step: attempting autosize for hwnd=%s path='%s' attempt=%d",
                 hwnd,
                 canonical_path,
@@ -490,11 +643,12 @@ class ExplorerAutosizeEngine:
 
             try:
                 # Use quick autosize for first few attempts, then full
-                # Pass path so the autosize function can find the correct tab
+                # Pass the stable tab identity. A path is insufficient because
+                # two tabs under one HWND may show the same folder.
                 if state.retry_attempt <= 2:
-                    result = self._autosize_try(hwnd, canonical_path)
+                    result = self._autosize_try(hwnd, state.tab_id, canonical_path)
                 else:
-                    result = self._autosize_full(hwnd, canonical_path)
+                    result = self._autosize_full(hwnd, state.tab_id, canonical_path)
 
                 if isinstance(result, tuple):
                     if len(result) >= 3:
@@ -511,7 +665,7 @@ class ExplorerAutosizeEngine:
                     method = "unknown" if ok else "none"
                     is_transient = False
 
-                log.info(
+                log.debug(
                     "ExplorerAutosizeEngine.step: autosize result: "
                     "ok=%s method=%s transient=%s hwnd=%s",
                     ok,
@@ -537,7 +691,7 @@ class ExplorerAutosizeEngine:
                 # Legacy compatibility: record path with LRU eviction
                 self._record_autosized_path(canonical_path, now)
 
-                log.info(
+                log.debug(
                     "ExplorerAutosizeEngine.step: SUCCESS - autosized hwnd=%s path='%s' method=%s",
                     hwnd,
                     canonical_path,
@@ -578,9 +732,9 @@ class ExplorerAutosizeEngine:
                             state.pending_retry = False
                             log.warning(
                                 "ExplorerAutosizeEngine.step: exhausted retries "
-                                "for hwnd=%s path='%s'",
+                                "for hwnd=%s tab_id=%s",
                                 hwnd,
-                                canonical_path,
+                                state.tab_id,
                             )
                 else:
                     # Non-transient error (e.g., not in Details view) - don't retry
@@ -591,11 +745,11 @@ class ExplorerAutosizeEngine:
                         hwnd,
                     )
 
-        # Clean up entries for (hwnd, path) combinations that no longer exist
-        closed_entries = [key for key in self.tab_state if key not in live_tab_keys]
-        for key in closed_entries:
-            del self.tab_state[key]
-            log.debug("ExplorerAutosizeEngine.step: removed closed entry %s", key)
+        # Clean up tab identities that no longer exist.
+        closed_entries = [tab_key for tab_key in self.tab_state if tab_key not in live_tab_keys]
+        for closed_tab_key in closed_entries:
+            del self.tab_state[closed_tab_key]
+            log.debug("ExplorerAutosizeEngine.step: removed closed entry %s", closed_tab_key)
 
         # Update legacy window_state for compatibility
         self.window_state = {
@@ -613,11 +767,11 @@ class ExplorerAutosizeEngine:
             if state.pending_retry
         }
 
-        # Record activity whenever the set of open tabs or their paths changed.
+        # Record activity whenever the set of open tabs, paths, or views changed.
         # Startup counts as activity so a freshly enabled worker responds fast.
-        if self._last_activity == 0.0 or live_tab_keys != self._prev_live_keys:
+        if self._last_activity == 0.0 or live_tab_signatures != self._prev_live_signatures:
             self._last_activity = now
-            self._prev_live_keys = set(live_tab_keys)
+            self._prev_live_signatures = set(live_tab_signatures)
 
         return self._next_delay(now)
 
@@ -641,8 +795,10 @@ class ExplorerAutosizeEngine:
         next_due = min(s.next_retry_at for s in pending_tabs)
         delay = next_due - now
 
-        # Clamp to reasonable bounds
-        return max(0.005, min(0.05, delay))
+        # Respect future retry deadlines instead of repeatedly enumerating COM
+        # while a minimized window is waiting to become interactive. A 50 ms
+        # floor also prevents a past-due retry from creating a 200 Hz loop.
+        return max(0.05, min(0.5, delay))
 
     def clear_path_history(self):
         """Clear the set of autosized paths and deduplication cache (for testing or reset)."""
@@ -659,8 +815,11 @@ class ExplorerAutosizeEngine:
 
 
 # Conditional PySide6 import for CI compatibility (D-10)
+QtCore: Any
 try:
-    from PySide6 import QtCore
+    from PySide6 import QtCore as _QtCore
+
+    QtCore = _QtCore
 except Exception:  # pragma: no cover - PySide6 unavailable in some test envs
     QtCore = None
 
@@ -687,8 +846,8 @@ if QtCore is not None:
 
         def __init__(
             self,
-            autosize_try: Callable[[int], tuple[bool, str]],
-            autosize_full: Callable[[int], tuple[bool, str]],
+            autosize_try: _ServiceAutosize,
+            autosize_full: _ServiceAutosize,
             is_window_interactive: Callable[[int], bool],
             schedule: tuple[float, ...] | None = None,
         ):
@@ -705,8 +864,8 @@ if QtCore is not None:
                 schedule: Retry schedule as tuple of delays in seconds
             """
             super().__init__()
-            self._autosize_try_legacy = autosize_try
-            self._autosize_full_legacy = autosize_full
+            self._autosize_try_service = autosize_try
+            self._autosize_full_service = autosize_full
             self._is_window_interactive = is_window_interactive
             self._schedule = schedule if schedule else self.DEFAULT_SCHEDULE
             self._stop = threading.Event()
@@ -765,18 +924,31 @@ if QtCore is not None:
             # cycle (avoids RPC errors 0x80010108, 0x800706b5). A creation
             # failure is retried with a cooldown instead of disabling the
             # feature for the process lifetime.
-            shell_state = {"app": None, "retry_at": 0.0}
+            shell_state: _ShellState = {"app": None, "retry_at": 0.0}
+            identity_registry = _ComIdentityRegistry()
+
+            def invalidate_shell_app(reason: str, retry_delay: float = 1.0) -> None:
+                """Release a disconnected proxy so the next poll can recreate it."""
+                if shell_state["app"] is not None:
+                    log.debug(
+                        "Explorer autosize worker: invalidating Shell.Application: %s",
+                        reason,
+                    )
+                identity_registry.clear()
+                shell_state["app"] = None
+                shell_state["retry_at"] = time.monotonic() + retry_delay
 
             def ensure_shell_app():
                 if shell_state["app"] is not None:
                     return shell_state["app"]
-                if time.time() < shell_state["retry_at"]:
+                if time.monotonic() < shell_state["retry_at"]:
                     return None
                 try:
                     shell_state["app"] = win32com.client.Dispatch("Shell.Application")
+                    shell_state["retry_at"] = 0.0
                     log.info("Explorer autosize worker: Shell.Application cached")
                 except Exception as e:
-                    shell_state["retry_at"] = time.time() + 30.0
+                    shell_state["retry_at"] = time.monotonic() + 30.0
                     log.warning(
                         "Explorer autosize worker: Shell.Application creation failed "
                         "(retrying in 30s): %s",
@@ -799,102 +971,77 @@ if QtCore is not None:
                         return None
 
                 def iter_tabs():
-                    """
-                    Enumerate all Explorer tabs using the cached Shell.Application.
+                    """Enumerate Explorer tabs with stable worker-owned COM identities."""
 
-                    Returns: List of (hwnd, tab_id, path, view_mode) tuples.
-
-                    tab_id is computed as hash(hwnd, canonical_path) to provide stable
-                    identity across poll cycles. This means:
-                    - Same (hwnd, path) = same tab identity
-                    - Path change on same hwnd = navigation detected
-                    - Multiple tabs with different paths = distinct identities
-
-                    IMPORTANT: This function checks the stop flag aggressively before
-                    every COM call to avoid RPC failures during shutdown.
-                    """
-
-                    # Helper to check stop flag - must be checked before EVERY COM call
-                    def stopping():
+                    def stopping() -> bool:
                         return self._stop.is_set()
 
                     shell_app = None if stopping() else ensure_shell_app()
-                    # Exit early if we are stopping to avoid COM calls during teardown
                     if stopping() or shell_app is None:
                         return []
 
-                    out = []
+                    out: list[tuple[int, int, str, int | None]] = []
                     windows = None
                     window_list = []
+                    enumeration_complete = False
+                    identity_registry.begin_poll()
 
-                    # Use cached shell_app instead of creating new instance
                     try:
-                        if stopping():
-                            return []
-                        windows = shell_app.Windows()
-                        if windows is None:
-                            return out
-
-                        # Get count with stop check
-                        if stopping():
-                            return []
                         try:
-                            count = windows.Count
+                            if stopping():
+                                return out
+                            windows = shell_app.Windows()
+                            if windows is None:
+                                invalidate_shell_app("Windows() returned None")
+                                return out
+                            if stopping():
+                                return out
+                            count = int(windows.Count)
                         except (
                             pywintypes.com_error,
                             pythoncom.com_error,
                             OSError,
                             Exception,
-                        ) as e:
-                            log.debug("iter_tabs: error getting window count: %s", e)
+                        ) as exc:
+                            log.debug("iter_tabs: Windows enumeration failed: %s", exc)
+                            invalidate_shell_app("Windows() enumeration failed")
                             return out
 
-                        # Enumerate windows with stop check before each Item() call
-                        for i in range(count):
+                        enumeration_complete = True
+                        item_failures = 0
+                        for index in range(count):
                             if stopping():
-                                log.debug("iter_tabs: stopping during enumeration")
+                                enumeration_complete = False
                                 return out
                             try:
-                                w = windows.Item(i)
-                                if w is not None:
-                                    window_list.append(w)
+                                window = windows.Item(index)
                             except (
                                 pywintypes.com_error,
                                 pythoncom.com_error,
                                 OSError,
                                 Exception,
                             ):
+                                item_failures += 1
+                                enumeration_complete = False
                                 continue
+                            if window is not None:
+                                window_list.append(window)
+
+                        if count > 0 and item_failures == count:
+                            invalidate_shell_app("every Windows.Item call failed")
+                            return out
 
                         log.debug(
                             "iter_tabs: Shell.Application returned %d windows",
                             len(window_list),
                         )
-                    except (
-                        pywintypes.com_error,
-                        pythoncom.com_error,
-                        OSError,
-                        Exception,
-                    ) as e:
-                        log.debug("iter_tabs: failed to get Shell.Application windows: %s", e)
-                        # The cached proxy is likely disconnected (Explorer was
-                        # restarted). Drop it so ensure_shell_app recreates it
-                        # on the next poll instead of reusing a dead proxy.
-                        shell_state["app"] = None
-                        shell_state["retry_at"] = time.time() + 1.0
-                        return out
-
-                    for idx, w in enumerate(window_list):
-                        # Check stop before processing each window
-                        if stopping():
-                            log.debug("iter_tabs: stopping during window processing")
-                            break
-
-                        try:
+                        for window in window_list:
                             if stopping():
+                                enumeration_complete = False
                                 break
+
                             try:
-                                hwnd = int(w.HWND or 0)
+                                hwnd = int(window.HWND or 0)
                             except (
                                 pywintypes.com_error,
                                 pythoncom.com_error,
@@ -902,80 +1049,81 @@ if QtCore is not None:
                                 AttributeError,
                                 Exception,
                             ):
+                                enumeration_complete = False
                                 continue
-
                             if not hwnd:
+                                enumeration_complete = False
                                 continue
 
-                            # Filter to real Explorer windows by window class.
-                            # Cheaper than the Name property (no cross-process
-                            # COM call) and immune to lookalikes such as
-                            # Internet Explorer.
                             try:
-                                if win32gui.GetClassName(hwnd) not in (
-                                    "CabinetWClass",
-                                    "ExploreWClass",
-                                ):
-                                    continue
+                                window_class = win32gui.GetClassName(hwnd)
                             except Exception:
+                                enumeration_complete = False
+                                continue
+                            if window_class not in ("CabinetWClass", "ExploreWClass"):
                                 continue
 
-                            if stopping():
-                                break
                             try:
-                                path = _resolve_explorer_path(w)
+                                identity = window._oleobj_.QueryInterface(pythoncom.IID_IUnknown)
+                                tab_id = identity_registry.identify(identity, window)
                             except (
                                 pywintypes.com_error,
                                 pythoncom.com_error,
                                 OSError,
+                                AttributeError,
                                 Exception,
-                            ):
-                                path = ""
+                            ) as exc:
+                                enumeration_complete = False
+                                log.debug(
+                                    "iter_tabs: could not retain COM identity for hwnd=%s: %s",
+                                    hwnd,
+                                    exc,
+                                )
+                                continue
 
-                            if stopping():
-                                break
-
-                            # Use (hwnd, index) as stable identity within a single poll
-                            tab_id = hash((hwnd, idx))
-                            view_mode = _get_view_mode(w)
-
-                            # Do NOT return the COM dispatch object to avoid
-                            # GC-time COM releases
+                            path = _resolve_explorer_path(window)
+                            view_mode = _get_view_mode(window)
                             out.append((hwnd, tab_id, path, view_mode))
                             log.debug(
-                                "iter_tabs: found tab hwnd=%s idx=%d tab_id=%s path='%s' view=%s",
+                                "iter_tabs: found tab hwnd=%s tab_id=%s view=%s",
                                 hwnd,
-                                idx,
                                 tab_id,
-                                path,
                                 view_mode,
                             )
-                        except (
-                            pywintypes.com_error,
-                            pythoncom.com_error,
-                            OSError,
-                            Exception,
-                        ) as e:
-                            log.debug("iter_tabs: error processing window: %s", e)
-                            continue
-
-                    # Proactively drop COM references before returning
-                    window_list.clear()
-                    windows = None
-                    # The cached Shell.Application stays owned by the worker thread.
-
-                    return out
+                        return out
+                    except (
+                        pywintypes.com_error,
+                        pythoncom.com_error,
+                        OSError,
+                        Exception,
+                    ) as exc:
+                        enumeration_complete = False
+                        log.debug("iter_tabs: failed while processing windows: %s", exc)
+                        invalidate_shell_app("Windows() processing failed")
+                        return out
+                    finally:
+                        window_list.clear()
+                        windows = None
+                        identity_registry.finish_poll(
+                            complete=enumeration_complete and not stopping()
+                        )
 
                 def autosize_try_wrapper(
-                    hwnd: int, target_path: str | None
+                    hwnd: int, tab_id: int, target_path: str | None
                 ) -> tuple[bool, str, bool]:
-                    """Wrapper: calls legacy autosize with path, adds transient detection."""
+                    """Autosize the exact retained COM tab identity."""
                     if self._stop.is_set():
                         return (False, "stopped", False)
+                    tab_identity = identity_registry.identity_for(tab_id)
+                    if tab_identity is None:
+                        return (False, "not-found", True)
                     try:
                         # Worker thread owns COM lifecycle - tell autosize not to init/uninit
-                        result = self._autosize_try_legacy(
-                            hwnd, target_path=target_path, caller_owns_com=True
+                        result = self._autosize_try_service(
+                            hwnd,
+                            target_path=target_path,
+                            caller_owns_com=True,
+                            tab_identity=tab_identity,
                         )
                         if isinstance(result, tuple) and len(result) >= 2:
                             ok, method = result[:2]
@@ -995,15 +1143,21 @@ if QtCore is not None:
                         return (False, "error", True)  # Exceptions are transient
 
                 def autosize_full_wrapper(
-                    hwnd: int, target_path: str | None
+                    hwnd: int, tab_id: int, target_path: str | None
                 ) -> tuple[bool, str, bool]:
-                    """Wrapper: calls legacy autosize with path, adds transient detection."""
+                    """Run the full strategy against the exact retained COM tab."""
                     if self._stop.is_set():
                         return (False, "stopped", False)
+                    tab_identity = identity_registry.identity_for(tab_id)
+                    if tab_identity is None:
+                        return (False, "not-found", True)
                     try:
                         # Worker thread owns COM lifecycle - tell autosize not to init/uninit
-                        result = self._autosize_full_legacy(
-                            hwnd, target_path=target_path, caller_owns_com=True
+                        result = self._autosize_full_service(
+                            hwnd,
+                            target_path=target_path,
+                            caller_owns_com=True,
+                            tab_identity=tab_identity,
                         )
                         if isinstance(result, tuple) and len(result) >= 2:
                             ok, method = result[:2]
@@ -1035,13 +1189,13 @@ if QtCore is not None:
                     if self._stop.is_set():
                         break
                     try:
-                        now = time.time()
+                        now = time.monotonic()
                         sleep_for = engine.step(now)
                         loop_count += 1
 
                         # Log metrics periodically
                         if loop_count <= 5 or loop_count % 50 == 0:
-                            log.info(
+                            log.debug(
                                 "Explorer autosize: loop=%d tabs=%d pending=%d "
                                 "cache=%d paths=%d sleep=%.3fs",
                                 loop_count,
@@ -1068,9 +1222,9 @@ if QtCore is not None:
                     # only for the stop event, an incoming window message
                     # (pumped for the STA), or the timeout. The old loop woke
                     # 200 times per second around the clock.
-                    deadline = time.time() + sleep_for
+                    deadline = time.monotonic() + sleep_for
                     while not self._stop.is_set():
-                        remaining_ms = int((deadline - time.time()) * 1000)
+                        remaining_ms = int((deadline - time.monotonic()) * 1000)
                         if remaining_ms <= 0:
                             break
                         if self._stop_win32_event is None:
@@ -1096,6 +1250,7 @@ if QtCore is not None:
             finally:
                 # CRITICAL: Release all COM objects BEFORE uninitializing COM
                 # This prevents crashes from lingering COM references
+                identity_registry.clear()
                 shell_state["app"] = None
                 try:
                     pythoncom.CoUninitialize()

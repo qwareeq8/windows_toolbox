@@ -3,18 +3,21 @@
 // flow through without prop drilling.
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTokens } from "./theme.jsx";
-import { Icon } from "./icons.jsx";
 
-function Toggle({ on, onChange, size = "md" }) {
+function Toggle({ on, onChange, size = "md", label, disabled = false }) {
   const t = useTokens();
   const W = size === "sm" ? 26 : 32;
   const H = size === "sm" ? 15 : 18;
   const K = H - 4;
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={!!on}
+      aria-label={label}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
         onChange(!on);
@@ -22,7 +25,7 @@ function Toggle({ on, onChange, size = "md" }) {
       style={{
         border: "none",
         padding: 0,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
         background: "transparent",
         flexShrink: 0,
       }}
@@ -33,11 +36,7 @@ function Toggle({ on, onChange, size = "md" }) {
           width: W,
           height: H,
           borderRadius: H / 2,
-          background: on
-            ? t.accent
-            : t.isDark
-              ? "rgba(255,255,255,0.12)"
-              : "#D6D2CB",
+          background: on ? t.accent : t.isDark ? "rgba(255,255,255,0.12)" : "#D6D2CB",
           position: "relative",
           transition: "background .15s",
         }}
@@ -60,17 +59,15 @@ function Toggle({ on, onChange, size = "md" }) {
   );
 }
 
-function Button({
-  children,
-  variant = "secondary",
-  size = "md",
-  onClick,
-  icon,
-  kbd,
-  disabled,
-}) {
+const Button = React.forwardRef(function Button(
+  { children, variant = "secondary", size = "md", onClick, icon, kbd, disabled, ...buttonProps },
+  ref,
+) {
   const t = useTokens();
   const [hover, setHover] = React.useState(false);
+  const ariaDisabled =
+    buttonProps["aria-disabled"] === true || buttonProps["aria-disabled"] === "true";
+  const unavailable = disabled || ariaDisabled;
   const variants = {
     primary: {
       bg: t.accent,
@@ -92,7 +89,7 @@ function Button({
     },
     danger: {
       bg: "transparent",
-      color: "#C54A3A",
+      color: t.isDark ? "#F08A7C" : "#A63A2D",
       border: t.borderHi,
       hover: "rgba(197,74,58,0.08)",
     },
@@ -101,27 +98,36 @@ function Button({
   const H = size === "sm" ? 26 : 32;
   return (
     <button
-      onClick={onClick}
+      ref={ref}
+      type="button"
+      onClick={(event) => {
+        if (ariaDisabled) {
+          event.preventDefault();
+          return;
+        }
+        onClick?.(event);
+      }}
       disabled={disabled}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         height: H,
         padding: size === "sm" ? "0 10px" : "0 14px",
-        background: hover && !disabled ? v.hover : v.bg,
+        background: hover && !unavailable ? v.hover : v.bg,
         color: v.color,
         border: `1px solid ${v.border === "transparent" ? "transparent" : v.border}`,
         borderRadius: t.radius,
         fontSize: size === "sm" ? 12 : 13,
         fontWeight: 500,
         fontFamily: "inherit",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
+        cursor: unavailable ? "not-allowed" : "pointer",
+        opacity: unavailable ? 0.5 : 1,
         transition: "background .12s, border-color .12s",
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
       }}
+      {...buttonProps}
     >
       {icon}
       {children}
@@ -142,7 +148,7 @@ function Button({
       )}
     </button>
   );
-}
+});
 
 function Card({ title, subtitle, children, footer, padding = true }) {
   const t = useTokens();
@@ -177,15 +183,11 @@ function Card({ title, subtitle, children, footer, padding = true }) {
             </div>
           )}
           {subtitle && (
-            <div style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>
-              {subtitle}
-            </div>
+            <div style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>{subtitle}</div>
           )}
         </div>
       )}
-      <div style={{ padding: padding ? `4px ${t.cardPad}px` : 0 }}>
-        {children}
-      </div>
+      <div style={{ padding: padding ? `4px ${t.cardPad}px` : 0 }}>{children}</div>
       {footer && (
         <div
           style={{
@@ -214,9 +216,7 @@ function Row({ label, description, children, last }) {
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 500, color: t.text }}>
-          {label}
-        </div>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: t.text }}>{label}</div>
         {description && (
           <div
             style={{
@@ -235,10 +235,12 @@ function Row({ label, description, children, last }) {
   );
 }
 
-function Segmented({ options, value, onChange, mono }) {
+function Segmented({ options, value, onChange, mono, label }) {
   const t = useTokens();
   return (
     <div
+      role="group"
+      aria-label={label}
       style={{
         display: "inline-flex",
         background: t.isDark ? "rgba(255,255,255,0.04)" : "#EDEAE3",
@@ -253,8 +255,10 @@ function Segmented({ options, value, onChange, mono }) {
         const active = value === val;
         return (
           <button
+            type="button"
             key={val}
             onClick={() => onChange(val)}
+            aria-pressed={active}
             style={{
               height: 24,
               padding: "0 10px",
@@ -296,10 +300,12 @@ function stepBtn(t) {
   };
 }
 
-function Stepper({ value, onChange, min = 1, max = 9999, step = 1, suffix }) {
+function Stepper({ value, onChange, min = 1, max = 9999, step = 1, suffix, label }) {
   const t = useTokens();
   return (
     <div
+      role="group"
+      aria-label={label}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -311,12 +317,18 @@ function Stepper({ value, onChange, min = 1, max = 9999, step = 1, suffix }) {
       }}
     >
       <button
+        type="button"
         onClick={() => onChange(Math.max(min, value - step))}
+        aria-label={`Decrease ${label || "value"}`}
+        disabled={value <= min}
         style={stepBtn(t)}
       >
         {"−"}
       </button>
       <div
+        role="status"
+        aria-live="polite"
+        aria-label={`${label || "Value"}: ${value}${suffix || ""}`}
         style={{
           minWidth: 48,
           padding: "0 8px",
@@ -335,12 +347,13 @@ function Stepper({ value, onChange, min = 1, max = 9999, step = 1, suffix }) {
         }}
       >
         {value}
-        {suffix && (
-          <span style={{ color: t.textMuted, fontSize: 11 }}>{suffix}</span>
-        )}
+        {suffix && <span style={{ color: t.textMuted, fontSize: 11 }}>{suffix}</span>}
       </div>
       <button
+        type="button"
         onClick={() => onChange(Math.min(max, value + step))}
+        aria-label={`Increase ${label || "value"}`}
+        disabled={value >= max}
         style={stepBtn(t)}
       >
         +
@@ -349,7 +362,7 @@ function Stepper({ value, onChange, min = 1, max = 9999, step = 1, suffix }) {
   );
 }
 
-function Slider({ value, onChange, min = 0, max = 100 }) {
+function Slider({ value, onChange, min = 0, max = 100, label, suffix = "" }) {
   const t = useTokens();
   const pct = ((value - min) / (max - min)) * 100;
   const ref = React.useRef(null);
@@ -357,11 +370,7 @@ function Slider({ value, onChange, min = 0, max = 100 }) {
     const rect = ref.current.getBoundingClientRect();
     const set = (x) =>
       onChange(
-        Math.round(
-          min +
-            Math.max(0, Math.min(1, (x - rect.left) / rect.width)) *
-              (max - min),
-        ),
+        Math.round(min + Math.max(0, Math.min(1, (x - rect.left) / rect.width)) * (max - min)),
       );
     set(e.clientX);
     const mv = (ev) => set(ev.clientX);
@@ -382,6 +391,22 @@ function Slider({ value, onChange, min = 0, max = 100 }) {
       e.preventDefault();
       onChange(clamp(value + 1));
     }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      onChange(clamp(value - 1));
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      onChange(clamp(value + 1));
+    }
+    if (e.key === "Home") {
+      e.preventDefault();
+      onChange(min);
+    }
+    if (e.key === "End") {
+      e.preventDefault();
+      onChange(max);
+    }
   };
   return (
     <div
@@ -390,6 +415,8 @@ function Slider({ value, onChange, min = 0, max = 100 }) {
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={value}
+      aria-valuetext={`${value}${suffix}`}
+      aria-label={label}
       tabIndex={0}
       onKeyDown={onKeyDown}
       onPointerDown={start}
@@ -500,4 +527,136 @@ function Badge({ children, tone = "default" }) {
   );
 }
 
-export { Toggle, Button, Card, Row, Segmented, Stepper, Slider, Kbd, Badge };
+function Modal({
+  open,
+  onClose,
+  children,
+  ariaLabel,
+  labelledBy,
+  describedBy,
+  initialFocusRef,
+  width = 360,
+  align = "center",
+  closeOnBackdrop = true,
+}) {
+  const t = useTokens();
+  const dialogRef = React.useRef(null);
+  const previousFocusRef = React.useRef(null);
+  const onCloseRef = React.useRef(onClose);
+
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+
+    previousFocusRef.current = document.activeElement;
+    const appShell = document.querySelector("[data-app-shell]");
+    const previousAriaHidden = appShell?.getAttribute("aria-hidden");
+    const wasInert = appShell?.hasAttribute("inert") ?? false;
+    if (appShell) {
+      appShell.setAttribute("inert", "");
+      appShell.setAttribute("aria-hidden", "true");
+    }
+
+    const focusTimer = setTimeout(() => {
+      const target =
+        initialFocusRef?.current ||
+        dialogRef.current?.querySelector(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ||
+        dialogRef.current;
+      target?.focus();
+    }, 0);
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll(
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKeyDown);
+      if (appShell) {
+        if (!wasInert) appShell.removeAttribute("inert");
+        if (previousAriaHidden === null) appShell.removeAttribute("aria-hidden");
+        else appShell.setAttribute("aria-hidden", previousAriaHidden);
+      }
+      const previousFocus = previousFocusRef.current;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [initialFocusRef, open]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      onClick={(event) => {
+        if (closeOnBackdrop && event.target === event.currentTarget) {
+          onCloseRef.current();
+        }
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: t.overlay,
+        backdropFilter: "blur(2px)",
+        display: "flex",
+        alignItems: align === "start" ? "flex-start" : "center",
+        justifyContent: "center",
+        padding: align === "start" ? "80px 16px 16px" : 16,
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        tabIndex={-1}
+        style={{
+          width: `min(${width}px, calc(100vw - 32px))`,
+          maxHeight: "calc(100vh - 32px)",
+          background: t.surface,
+          border: `1px solid ${t.borderHi}`,
+          borderRadius: t.radius + 4,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.08)",
+          overflow: "auto",
+        }}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export { Toggle, Button, Card, Row, Segmented, Stepper, Slider, Kbd, Badge, Modal };

@@ -14,10 +14,16 @@ Usage in MainWindow:
 
 import logging
 import os
+import sys
 
 from PySide6.QtCore import QUrl
 from PySide6.QtWebChannel import QWebChannel
-from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PySide6.QtWebEngineCore import (
+    QWebEnginePage,
+    QWebEngineSettings,
+    QWebEngineUrlRequestInfo,
+    QWebEngineUrlRequestInterceptor,
+)
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from virelo.bridge import VireloBridge
@@ -27,6 +33,8 @@ LOG = logging.getLogger("Virelo")
 
 # Dev mode detection: requires explicit VIRELO_DEV=1 environment variable
 DEV_SERVER_URL = "http://localhost:5173"
+_QT_WEBCHANNEL_URL = b"qrc:///qtwebchannel/qwebchannel.js"
+_SET_HTML_DATA_PREFIX = b"data:text/html;charset=UTF-8,"
 
 _MISSING_FRONTEND_HTML = """<!DOCTYPE html>
 <html>
@@ -53,51 +61,126 @@ _MISSING_FRONTEND_HTML = """<!DOCTYPE html>
 def _is_dev_mode() -> bool:
     """Return True if we should connect to the Vite dev server.
 
-    Dev mode requires explicit opt-in via VIRELO_DEV=1 environment variable.
-    Running from source without VIRELO_DEV=1 behaves like release mode.
+    Dev mode requires explicit opt-in via VIRELO_DEV=1 environment variable and
+    is never enabled in a frozen executable. Running from source without the
+    environment variable behaves like release mode.
     """
+    if getattr(sys, "frozen", False):
+        return False
     return os.environ.get("VIRELO_DEV", "").lower() in ("1", "true", "yes")
 
 
 def _get_frontend_url():
     """Return the URL for the React frontend, or None if missing in release mode."""
     if _is_dev_mode():
-        LOG.info("WebView: dev mode -- loading from %s", DEV_SERVER_URL)
+        LOG.info("WebView: dev mode loading from %s", DEV_SERVER_URL)
         return QUrl(DEV_SERVER_URL)
-    else:
-        # Release mode: load from frontend/dist/index.html via file://
-        dist_path = resource_path(os.path.join("frontend", "dist", "index.html"))
-        if not os.path.exists(dist_path):
-            # Fallback: try relative to script directory
-            dist_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "frontend", "dist", "index.html"
-            )
-        if not os.path.exists(dist_path):
-            LOG.error("WebView: frontend build missing at %s", dist_path)
-            return None
-        LOG.info("WebView: release mode -- loading from %s", dist_path)
-        return QUrl.fromLocalFile(dist_path)
+
+    # Release mode: load from frontend/dist/index.html via file://.
+    dist_path = resource_path(os.path.join("frontend", "dist", "index.html"))
+    if not os.path.exists(dist_path):
+        LOG.error("WebView: frontend build missing at %s", dist_path)
+        return None
+    LOG.info("WebView: release mode loading from %s", dist_path)
+    return QUrl.fromLocalFile(dist_path)
+
+
+def _is_allowed_frontend_file(url: QUrl) -> bool:
+    """Return whether a local URL stays inside the packaged frontend root."""
+    try:
+        root = os.path.realpath(resource_path(os.path.join("frontend", "dist")))
+        target = os.path.realpath(url.toLocalFile())
+        return os.path.commonpath((root, target)) == root
+    except (OSError, ValueError):
+        return False
+
+
+def _is_dev_server_url(url: QUrl) -> bool:
+    """Return whether a URL matches the explicitly configured Vite origin."""
+    expected = QUrl(DEV_SERVER_URL)
+    return (
+        _is_dev_mode()
+        and url.scheme().lower() == expected.scheme().lower()
+        and url.host().lower() == expected.host().lower()
+        and url.port() == expected.port()
+    )
+
+
+def _is_qt_webchannel_resource(url: QUrl) -> bool:
+    """Return whether a URL is the Qt-provided WebChannel client script."""
+    return url.toEncoded().data() == _QT_WEBCHANNEL_URL
+
+
+def _is_allowed_release_resource(url: QUrl) -> bool:
+    """Return whether a resource is required by the packaged frontend."""
+    scheme = url.scheme().lower()
+    if scheme == "file":
+        return _is_allowed_frontend_file(url)
+    if scheme == "qrc":
+        return _is_qt_webchannel_resource(url)
+    return scheme == "data"
+
+
+class VireloRequestInterceptor(QWebEngineUrlRequestInterceptor):
+    """Confine release resource requests to the packaged frontend."""
+
+    def interceptRequest(self, info: QWebEngineUrlRequestInfo) -> None:
+        """Block release resources outside the explicit allowlist."""
+        url = info.requestUrl()
+        if _is_allowed_release_resource(url):
+            return
+        info.block(True)
+        LOG.warning(
+            "Blocked release resource request (scheme=%s, type=%s).",
+            url.scheme().lower() or "unknown",
+            info.resourceType(),
+        )
 
 
 class VireloWebPage(QWebEnginePage):
     """Custom page that routes JS console to Python logging and filters navigation."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._trusted_data_url: bytes | None = None
+
+    def set_trusted_error_html(self, html: str) -> None:
+        """Load one exact internal error document through Qt's data URL path."""
+        self._trusted_data_url = _SET_HTML_DATA_PREFIX + QUrl.toPercentEncoding(html).data()
+        try:
+            self.setHtml(html)
+        except Exception:
+            self._trusted_data_url = None
+            raise
+
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
         """Block all navigation except local and dev-mode localhost URLs."""
         scheme = url.scheme().lower()
-        # Allow file:// (release mode local files)
-        if scheme == "file":
+        if scheme != "data":
+            self._trusted_data_url = None
+        # Allow only packaged frontend files in release mode.
+        if scheme == "file" and _is_allowed_frontend_file(url):
             return True
-        # Allow data: (used internally by setHtml for error pages)
+        # Qt implements setHtml as a data URL navigation. Allow the exact
+        # internal error document once, then reject ordinary data navigation.
         if scheme == "data":
-            return True
-        # Allow localhost in dev mode only (Vite dev server)
-        if scheme in ("http", "https") and url.host() == "localhost" and _is_dev_mode():
+            encoded_url = url.toEncoded().data()
+            trusted = (
+                is_main_frame
+                and nav_type == QWebEnginePage.NavigationType.NavigationTypeTyped
+                and encoded_url == self._trusted_data_url
+            )
+            self._trusted_data_url = None
+            if trusted:
+                return True
+        # Allow only the configured Vite origin in explicit development mode.
+        if _is_dev_server_url(url):
             return True
         # Block everything else
         LOG.warning(
-            "Blocked navigation to: %s (type=%s, main_frame=%s)",
-            url.toString(),
+            "Blocked navigation (scheme=%s, host=%s, type=%s, main_frame=%s).",
+            scheme or "unknown",
+            url.host() or "none",
             nav_type,
             is_main_frame,
         )
@@ -138,6 +221,14 @@ class VireloWebView(QWebEngineView):
         )
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.NavigateOnDropEnabled, False)
+
+        # Vite requires unrestricted development requests for HMR. Packaged
+        # builds instead allow only their own files and the WebChannel script.
+        self._request_interceptor: VireloRequestInterceptor | None = None
+        if not _is_dev_mode():
+            self._request_interceptor = VireloRequestInterceptor(page)
+            page.profile().setUrlRequestInterceptor(self._request_interceptor)
 
         # Set up QWebChannel
         self._channel = QWebChannel(page)
@@ -155,7 +246,7 @@ class VireloWebView(QWebEngineView):
         # Load the frontend
         url = _get_frontend_url()
         if url is None:
-            page.setHtml(_MISSING_FRONTEND_HTML)
+            page.set_trusted_error_html(_MISSING_FRONTEND_HTML)
             LOG.warning("VireloWebView: showing missing frontend error page")
         else:
             self.setUrl(url)
@@ -165,7 +256,10 @@ class VireloWebView(QWebEngineView):
         """Reload the frontend page."""
         url = _get_frontend_url()
         if url is None:
-            self.page().setHtml(_MISSING_FRONTEND_HTML)
+            page = self.page()
+            if not isinstance(page, VireloWebPage):
+                raise RuntimeError("VireloWebView requires a VireloWebPage instance.")
+            page.set_trusted_error_html(_MISSING_FRONTEND_HTML)
             LOG.warning("VireloWebView: showing missing frontend error page")
         else:
             self.setUrl(url)

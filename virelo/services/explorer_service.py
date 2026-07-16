@@ -22,8 +22,11 @@ LOG = logging.getLogger("Virelo")
 
 
 def _autosize_explorer_columns_quick(
-    top_hwnd: int, target_path: str = None, caller_owns_com: bool = False
-) -> tuple:
+    top_hwnd: int,
+    target_path: str | None = None,
+    caller_owns_com: bool = False,
+    tab_identity: object | None = None,
+) -> tuple[bool, str]:
     """
     Single autosize attempt using COM-based column manager only.
     Returns (success, method).
@@ -33,12 +36,16 @@ def _autosize_explorer_columns_quick(
         allow_keyboard_fallback=False,
         target_path=target_path,
         caller_owns_com=caller_owns_com,
+        tab_identity=tab_identity,
     )
 
 
 def _autosize_explorer_columns_full(
-    top_hwnd: int, target_path: str = None, caller_owns_com: bool = False
-) -> tuple:
+    top_hwnd: int,
+    target_path: str | None = None,
+    caller_owns_com: bool = False,
+    tab_identity: object | None = None,
+) -> tuple[bool, str]:
     """
     Full autosize attempt; currently identical to quick (COM-only, no fallbacks).
     Returns (success, method).
@@ -48,6 +55,7 @@ def _autosize_explorer_columns_full(
         allow_keyboard_fallback=False,
         target_path=target_path,
         caller_owns_com=caller_owns_com,
+        tab_identity=tab_identity,
     )
 
 

@@ -3,6 +3,7 @@
 import ctypes
 import logging
 from ctypes import wintypes
+from typing import Any
 
 import win32api
 import win32con
@@ -13,6 +14,8 @@ LOG = logging.getLogger("Virelo")
 # ctypes.windll only exists on Windows. Guard the module-level access so the
 # package can be imported for unit-test collection on Linux CI, where these
 # functions are never actually called.
+USER32: Any
+KERNEL32: Any
 try:
     USER32 = ctypes.windll.user32
     KERNEL32 = ctypes.windll.kernel32

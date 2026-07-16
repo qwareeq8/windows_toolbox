@@ -194,3 +194,57 @@ def test_commit_persists_new_keys(settings_state, mock_settings):
     assert mock_settings.accent == "teal"
     assert mock_settings.density == "compact"
     assert mock_settings.minimize_to_tray is False
+
+
+def test_apply_draft_rejects_empty_hotkey(settings_state):
+    """An empty hotkey must fail before it can break hook registration."""
+    result = settings_state.apply_draft({"snap_key": "  "})
+    assert result["ok"] is False
+    assert "cannot be empty" in result["error"]
+
+
+def test_commit_failure_restores_values_and_keeps_draft(settings_state, mock_settings):
+    """A failed save keeps both the prior runtime values and the pending draft."""
+    original_width = mock_settings.width_pct
+    calls = 0
+
+    def fail_once_then_rollback():
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OSError("Simulated write failure.")
+
+    mock_settings.save = fail_once_then_rollback
+    settings_state.apply_draft({"width_pct": 50})
+
+    with pytest.raises(OSError, match="Simulated write failure"):
+        settings_state.commit_draft()
+
+    assert mock_settings.width_pct == original_width
+    assert settings_state.has_draft is True
+    assert calls == 2
+
+
+def test_persist_immediate_does_not_commit_unrelated_draft(settings_state, mock_settings):
+    """A tray toggle persists only its own value and leaves other edits pending."""
+    original_width = mock_settings.width_pct
+    settings_state.apply_draft({"width_pct": 50})
+
+    result = settings_state.persist_immediate({"minimize_to_tray": False})
+
+    assert result == {"ok": True, "applied": {"minimize_to_tray": False}}
+    assert mock_settings.minimize_to_tray is False
+    assert mock_settings.width_pct == original_width
+    assert settings_state.get_all()["width_pct"] == 50
+    assert settings_state.has_draft is True
+
+
+def test_get_all_normalizes_corrupted_visual_choices(settings_state, mock_settings):
+    """Invalid persisted visual choices fall back to supported defaults."""
+    mock_settings.accent = "neon"
+    mock_settings.density = "huge"
+
+    result = settings_state.get_all()
+
+    assert result["accent"] == DEFAULTS["accent"]
+    assert result["density"] == DEFAULTS["density"]

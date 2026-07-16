@@ -5,6 +5,7 @@ import ctypes.wintypes
 import logging
 import os
 import sys
+from typing import cast
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from win32com.client import Dispatch
@@ -31,7 +32,7 @@ APP_TITLE = APP_NAME
 
 # Window chrome constants for WM_NCHITTEST hit-zone classification
 TITLE_BAR_HEIGHT = 35  # Frontend TitleBar: 34px height + 1px borderBottom
-CONTROLS_WIDTH = 60  # Two 28px window control buttons + right padding margin
+CONTROLS_WIDTH = 308  # Search and window controls, plus a 6-pixel safety buffer.
 
 
 # ------------------------------------------------------------------------------
@@ -83,16 +84,32 @@ def create_startup_shortcut():
     icon_path = resource_path("icon.ico")
     if os.path.exists(icon_path):
         shortcut.IconLocation = icon_path
-    shortcut.Save()
+    try:
+        shortcut.Save()
+        if not os.path.isfile(shortcut_path):
+            raise OSError("Windows did not create the startup shortcut.")
+    except Exception:
+        # A failed COM save can leave a partial .lnk behind. Remove it so the
+        # persisted toggle can be reconciled to a definite disabled state.
+        try:
+            if os.path.exists(shortcut_path):
+                os.remove(shortcut_path)
+        except OSError:
+            LOG.exception("Failed to remove a partial startup shortcut.")
+        raise
 
 
 def remove_startup_shortcut():
     shortcut_path = get_startup_shortcut_path()
     if os.path.exists(shortcut_path):
-        try:
-            os.remove(shortcut_path)
-        except Exception as e:
-            LOG.exception("Failed to remove startup shortcut.", exc_info=e)
+        os.remove(shortcut_path)
+    if os.path.exists(shortcut_path):
+        raise OSError("Windows did not remove the startup shortcut.")
+
+
+def startup_shortcut_exists() -> bool:
+    """Return whether the per-user launch-at-login shortcut exists."""
+    return os.path.isfile(get_startup_shortcut_path())
 
 
 # ------------------------------------------------------------------------------
@@ -181,6 +198,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # --- Bridge + WebView ---
         self._settings_state = SettingsState(self.settings)
+        # Normalize persisted hotkey names before installing global hooks. A
+        # corrupted registry value must not prevent the application from
+        # opening; SettingsState falls back to the documented defaults.
+        normalized_settings = self._settings_state.get_all()
+        self.settings.snap_key = normalized_settings["snap_key"]
+        self.settings.restore_key = normalized_settings["restore_key"]
         self._snap_service = SnapService(None)  # shift_mgr set after construction
         self._bridge = VireloBridge(self._settings_state, self._snap_service, parent=self)
         self._bridge.set_main_window(self)
@@ -194,14 +217,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Route snap_key_status signal to bridge
         self.snap_key_status.connect(self._bridge.snap_status.emit)
 
-        # Folder view tasks restart Explorer; bring the autosize worker back
-        # afterward (queued from the task's worker thread to the GUI thread).
+        # Folder view tasks pause autosize while registry defaults change;
+        # resume it afterward on the GUI thread.
         self._bridge.explorer_service_restart.connect(self._update_explorer_autosize_thread)
 
         # Shortcuts
-        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, activated=self._toggle_theme)
-        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Enter"), self, activated=self._test_snap)
-        QtGui.QShortcut(QtGui.QKeySequence("F1"), self, activated=self._show_help)
+        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+T"), self, self._toggle_theme)
+        QtGui.QShortcut(QtGui.QKeySequence("Ctrl+Enter"), self, self._test_snap)
+        QtGui.QShortcut(QtGui.QKeySequence("F1"), self, self._show_help)
 
         # MultiPressHotkeyListener + SnapRestoreController (per D-01/D-02/D-03)
         self._hotkey_listener = MultiPressHotkeyListener(self.settings)
@@ -232,8 +255,18 @@ class MainWindow(QtWidgets.QMainWindow):
             event.ignore()
             self.hide()
         else:
-            self._stop_background_threads()
+            if not self._can_start_shutdown():
+                event.ignore()
+                return
+            if not self._resolve_pending_settings_on_quit():
+                event.ignore()
+                return
+            if not self._stop_background_threads(capture_timeout_ms=2000):
+                event.ignore()
+                self._show_shutdown_deferred()
+                return
             self._hotkey_listener.cleanup()
+            event.accept()
             QtWidgets.QApplication.quit()
 
     def _on_tray_activated(self, reason):
@@ -249,20 +282,89 @@ class MainWindow(QtWidgets.QMainWindow):
         self.activateWindow()
 
     def _really_quit(self):
-        self._stop_background_threads()
+        if not self._can_start_shutdown():
+            return
+        if not self._resolve_pending_settings_on_quit():
+            return
+        if not self._stop_background_threads(capture_timeout_ms=2000):
+            self._show_shutdown_deferred()
+            return
         self._hotkey_listener.cleanup()
         QtWidgets.QApplication.quit()
 
-    def _stop_background_threads(self):
+    def _can_start_shutdown(self) -> bool:
+        """Refuse an interactive quit while registry recovery work is active."""
+        if not self._bridge.is_view_task_running():
+            return True
+        QtWidgets.QMessageBox.information(
+            self,
+            "Folder view update in progress",
+            "Virelo is still updating folder views and cannot quit yet. "
+            "Wait for the update to finish, then quit again.",
+        )
+        return False
+
+    def _show_shutdown_deferred(self) -> None:
+        """Explain why shutdown was deferred to preserve a live worker."""
+        QtWidgets.QMessageBox.warning(
+            self,
+            "Background task is still stopping",
+            "Virelo could not stop key capture safely yet and will remain open. "
+            "Try quitting again in a moment.",
+        )
+
+    def _resolve_pending_settings_on_quit(self) -> bool:
+        """Ask how to handle unsaved settings before a destructive quit."""
+        if not self._settings_state.has_draft:
+            return True
+        choice = QtWidgets.QMessageBox.warning(
+            self,
+            "Unsaved settings",
+            "Virelo has unsaved settings. Save them before quitting?",
+            QtWidgets.QMessageBox.StandardButton.Save
+            | QtWidgets.QMessageBox.StandardButton.Discard
+            | QtWidgets.QMessageBox.StandardButton.Cancel,
+            QtWidgets.QMessageBox.StandardButton.Save,
+        )
+        if choice == QtWidgets.QMessageBox.StandardButton.Cancel:
+            return False
+        if choice == QtWidgets.QMessageBox.StandardButton.Discard:
+            self._settings_state.discard_draft()
+            self._bridge.settings_changed.emit(self._settings_state.get_json())
+            self._bridge.dirty_changed.emit(False)
+            self._apply_theme_mode(self.settings.theme)
+            return True
+
+        try:
+            result = self._settings_state.commit_draft()
+        except Exception as exc:
+            LOG.exception("Saving settings before quit failed")
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Settings were not saved",
+                f"Virelo could not save the settings and will remain open.\n\n{exc}",
+            )
+            return False
+        self._bridge._apply_side_effects(result.get("applied", {}))
+        self._bridge.settings_changed.emit(self._settings_state.get_json())
+        self._bridge.dirty_changed.emit(False)
+        return True
+
+    def _stop_background_threads(self, capture_timeout_ms: int | None = None) -> bool:
+        """Stop background workers without abandoning live thread objects."""
         # Let any in-flight folder view registry task finish so it is never
         # killed mid-write during shutdown.
         try:
-            self._bridge.wait_for_view_task()
+            if not self._bridge.wait_for_view_task(timeout=None):
+                return False
         except Exception:
             LOG.exception("Waiting for folder view task failed")
-        self._stop_capture_worker()
+            return False
+        if not self._stop_capture_worker(timeout_ms=capture_timeout_ms):
+            return False
         self._explorer_service.stop()
         self._stop_theme_sync()
+        return True
 
     # ------------------------------------------------------------------
     # Key capture (preserved -- uses bridge signals for status updates)
@@ -308,7 +410,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_capture_key(self, key: str):
         key_str = str(key).lower()
         target_key = "restore_key" if self._capture_target == "restore" else "snap_key"
-        self._settings_state.apply_draft({target_key: key_str})
+        result = self._settings_state.apply_draft({target_key: key_str})
+        if not result.get("ok"):
+            error = result.get("error", "The captured key is not supported.")
+            self._bridge.capture_status.emit("cancelled")
+            self._bridge.snap_status.emit(f"Key capture failed: {error}", 4000)
+            return
         self._bridge.settings_changed.emit(self._settings_state.get_json())
         self._bridge.dirty_changed.emit(True)
         self._bridge.capture_status.emit("done")
@@ -339,7 +446,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._capture_worker = None
         self._capture_target = None
 
-    def _stop_capture_worker(self):
+    def _stop_capture_worker(self, timeout_ms: int | None = 2000) -> bool:
+        """Stop key capture and retain ownership until its QThread has exited."""
         worker = getattr(self, "_capture_worker", None)
         thread = getattr(self, "_capture_thread", None)
         if worker is not None:
@@ -349,11 +457,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
         if thread is not None:
             thread.quit()
-            thread.wait(2000)
+            stopped = thread.wait() if timeout_ms is None else thread.wait(timeout_ms)
+            if not stopped:
+                # Keep ownership and the capture guard until the worker emits
+                # finished. Dropping a live QThread can abort the process, and
+                # releasing the guard could install a second global hook.
+                LOG.warning("Key capture thread did not stop within two seconds.")
+                return False
         self._capture_guard.finish()
         self._capture_thread = None
         self._capture_worker = None
         self._capture_target = None
+        return True
 
     # ------------------------------------------------------------------
     # Business logic actions (preserved)
@@ -361,8 +476,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _test_snap(self):
         try:
-            self.shift_mgr.perform(False)
-            self._bridge.snap_status.emit("Snap test applied to the active window.", 2000)
+            if self.shift_mgr.perform(False):
+                self._bridge.snap_status.emit("Snap test applied to the active window.", 2000)
+            else:
+                self._bridge.snap_status.emit("Could not snap the active window.", 2000)
         except Exception:
             self._bridge.snap_status.emit("Could not snap the active window.", 2000)
 
@@ -375,11 +492,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.snap_enabled = bool(defaults["enable_snap"])
         self._update_snap_enabled_state()
         self._update_explorer_autosize_thread()
-        self._apply_theme_mode(defaults["theme"])
+        self._apply_theme_mode(str(defaults["theme"]))
         if hasattr(self, "_hotkey_listener"):
-            self._hotkey_listener.update_binding(defaults["snap_key"])
-            self._hotkey_listener.update_restore_key(defaults["restore_key"])
-            self._hotkey_listener.update_press_limit(defaults["snap_presses"])
+            self._hotkey_listener.update_binding(str(defaults["snap_key"]))
+            self._hotkey_listener.update_restore_key(str(defaults["restore_key"]))
+            self._hotkey_listener.update_press_limit(cast(int, defaults["snap_presses"]))
         self._bridge.settings_changed.emit(self._settings_state.get_json())
         self._bridge.snap_status.emit("Defaults loaded.", 3000)
 
@@ -423,31 +540,41 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _toggle_minimize_on_exit(self):
         checked = self.action_minimize_on_exit.isChecked()
-        result = self._settings_state.apply_draft({"minimize_to_tray": checked})
+        try:
+            result = self._settings_state.persist_immediate({"minimize_to_tray": checked})
+        except Exception as exc:
+            LOG.exception("Saving the minimize-to-tray setting failed")
+            result = {"ok": False, "error": str(exc)}
         if result.get("ok"):
-            commit_result = self._settings_state.commit_draft()
-            if commit_result.get("ok"):
-                self._bridge.settings_changed.emit(self._settings_state.get_json())
-                self._bridge.dirty_changed.emit(False)
-                self._bridge._apply_side_effects(commit_result.get("applied", {}))
-            else:
-                self.action_minimize_on_exit.setChecked(not checked)
+            self._bridge._apply_side_effects(result.get("applied", {}))
+            self._bridge.settings_changed.emit(self._settings_state.get_json())
+            self._bridge.dirty_changed.emit(self._settings_state.has_draft)
         else:
             self.action_minimize_on_exit.setChecked(not checked)
+            error = result.get("error", "Unknown error.")
+            self._bridge.snap_status.emit(
+                f"Could not save the minimize-to-tray setting: {error}",
+                5000,
+            )
 
     def _toggle_run_at_startup(self):
         checked = self.action_run_at_startup.isChecked()
-        result = self._settings_state.apply_draft({"run_at_startup": checked})
+        try:
+            result = self._settings_state.persist_immediate({"run_at_startup": checked})
+        except Exception as exc:
+            LOG.exception("Saving the startup setting failed")
+            result = {"ok": False, "error": str(exc)}
         if result.get("ok"):
-            commit_result = self._settings_state.commit_draft()
-            if commit_result.get("ok"):
-                self._bridge.settings_changed.emit(self._settings_state.get_json())
-                self._bridge.dirty_changed.emit(False)
-                self._bridge._apply_side_effects(commit_result.get("applied", {}))
-            else:
-                self.action_run_at_startup.setChecked(not checked)
+            self._bridge._apply_side_effects(result.get("applied", {}))
+            self._bridge.settings_changed.emit(self._settings_state.get_json())
+            self._bridge.dirty_changed.emit(self._settings_state.has_draft)
         else:
             self.action_run_at_startup.setChecked(not checked)
+            error = result.get("error", "Unknown error.")
+            self._bridge.snap_status.emit(
+                f"Could not save the startup setting: {error}",
+                5000,
+            )
 
     def _toggle_theme(self):
         new_mode = toggle_theme_mode(self._theme_mode, get_windows_theme())

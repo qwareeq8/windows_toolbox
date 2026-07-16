@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTokens } from "./theme.jsx";
-import { Kbd } from "./primitives.jsx";
+import { Kbd, Modal } from "./primitives.jsx";
 import { Icon } from "./icons.jsx";
 
 function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
@@ -10,12 +10,12 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
   const [q, setQ] = React.useState("");
   const [idx, setIdx] = React.useState(0);
   const inputRef = React.useRef(null);
+  const listboxId = React.useId();
 
   React.useEffect(() => {
     if (open) {
       setQ("");
       setIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [open]);
 
@@ -140,57 +140,34 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
   React.useEffect(() => {
     setIdx(0);
   }, [q]);
-  React.useEffect(() => {
-    if (!open) return;
-    const on = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setIdx((i) => Math.min(filtered.length - 1, i + 1));
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setIdx((i) => Math.max(0, i - 1));
-      }
-      if (e.key === "Enter") {
-        e.preventDefault();
-        filtered[idx]?.run();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", on);
-    return () => window.removeEventListener("keydown", on);
-  }, [open, filtered, idx, onClose]);
+  const onInputKeyDown = (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setIdx((current) => (filtered.length === 0 ? 0 : Math.min(filtered.length - 1, current + 1)));
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setIdx((current) => Math.max(0, current - 1));
+    }
+    if (event.key === "Enter" && filtered[idx]) {
+      event.preventDefault();
+      filtered[idx].run();
+      onClose();
+    }
+  };
 
   if (!open) return null;
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 50,
-        background: t.overlay,
-        backdropFilter: "blur(2px)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        paddingTop: 80,
-      }}
+    <Modal
+      open={open}
+      onClose={onClose}
+      ariaLabel="Command palette"
+      initialFocusRef={inputRef}
+      width={480}
+      align="start"
     >
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: 480,
-          background: t.surface,
-          border: `1px solid ${t.borderHi}`,
-          borderRadius: t.radius + 4,
-          boxShadow:
-            "0 20px 60px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.08)",
-          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
           maxHeight: 420,
@@ -212,7 +189,14 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search settings, jump to…"
+            onKeyDown={onInputKeyDown}
+            placeholder="Search settings, jump to..."
+            aria-label="Search commands"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={filtered[idx] ? `${listboxId}-option-${idx}` : undefined}
             style={{
               flex: 1,
               border: "none",
@@ -225,9 +209,15 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
           />
           <Kbd>Esc</Kbd>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label="Available commands"
+          style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}
+        >
           {filtered.length === 0 && (
             <div
+              role="status"
               style={{
                 padding: 24,
                 textAlign: "center",
@@ -239,7 +229,7 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
             </div>
           )}
           {Object.entries(groups).map(([grp, items]) => (
-            <div key={grp}>
+            <div key={grp} role="group" aria-label={grp}>
               <div
                 style={{
                   padding: "6px 14px 2px",
@@ -261,6 +251,9 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
                 return (
                   <div
                     key={c.label}
+                    id={`${listboxId}-option-${itemIdx}`}
+                    role="option"
+                    aria-selected={active}
                     onClick={() => {
                       c.run();
                       onClose();
@@ -310,7 +303,7 @@ function CommandPalette({ open, onClose, app, setNav, onTestSnap, onSave }) {
           <span>Virelo {__APP_VERSION__}</span>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

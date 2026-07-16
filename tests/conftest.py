@@ -1,5 +1,6 @@
-"""Root conftest: stub native modules so unit tests run without PySide6/Win32."""
+"""Root conftest: use real native modules when available and stub only absences."""
 
+import importlib
 import sys
 import types
 from unittest.mock import MagicMock
@@ -22,7 +23,11 @@ _NATIVE_STUBS = [
 ]
 
 for mod_name in _NATIVE_STUBS:
-    if mod_name not in sys.modules:
+    if mod_name in sys.modules:
+        continue
+    try:
+        importlib.import_module(mod_name)
+    except (ImportError, OSError):
         stub = types.ModuleType(mod_name)
         # PySide6.QtCore needs QObject, Signal, Slot for class definitions
         if mod_name == "PySide6.QtCore":
@@ -44,7 +49,11 @@ for mod_name in _NATIVE_STUBS:
 
 # Stub win32 modules with enough constants for win32_helpers.py to load
 for mod_name in ["win32api", "win32con", "win32gui"]:
-    if mod_name not in sys.modules:
+    if mod_name in sys.modules:
+        continue
+    try:
+        importlib.import_module(mod_name)
+    except (ImportError, OSError):
         stub = types.ModuleType(mod_name)
         if mod_name == "win32con":
             # Constants used by win32_helpers.py

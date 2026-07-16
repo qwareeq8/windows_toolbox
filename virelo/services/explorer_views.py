@@ -4,7 +4,7 @@ Makes Details view the default for every File Explorer folder type using
 the same registry mechanism as LesFerch/WinSetView, reduced to a single
 opinionated action:
 
-1. Back up the affected registry keys to .reg files.
+1. Back up the affected HKCU registry keys to a structured JSON snapshot.
 2. Delete the per-folder view caches (Bags and BagMRU in both hives) and
    the saved view defaults (Streams\\Defaults) so stale states cannot
    shadow the new defaults.
@@ -12,7 +12,8 @@ opinionated action:
    force LogicalViewMode=Details on every TopViews entry.
 4. Write Details-view bag entries for This PC, which has no FolderTypes
    GUID of its own.
-5. Restart Explorer so the running shell drops its cached view state.
+5. Tell the user to restart Explorer or sign out so the shell drops its
+   cached view state.
 
 The module separates pure plan construction (testable everywhere) from
 the Windows-only executor (winreg is imported lazily so unit tests can
@@ -21,12 +22,14 @@ import this module on any platform).
 
 from __future__ import annotations
 
+import base64
+import binascii
+import hashlib
+import json
 import logging
 import os
-import subprocess
-import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 LOG = logging.getLogger("Virelo")
 
@@ -64,6 +67,29 @@ VIEW_CACHE_KEYS = (
 
 # Keys exported to the backup before anything is modified.
 BACKUP_KEYS = VIEW_CACHE_KEYS
+BACKUP_MANIFEST = "manifest.json"
+BACKUP_DIGEST = "manifest.sha256"
+BACKUP_PENDING_MARKER = ".pending"
+BACKUP_SCHEMA_VERSION = 2
+MAX_BACKUP_BYTES = 128 * 1024 * 1024
+MAX_BACKUP_DEPTH = 64
+
+# Registry kinds that can be represented safely by the structured snapshot.
+# REG_LINK is intentionally excluded. These backups contain only ordinary
+# Explorer view data, and restore is constrained to the fixed HKCU keys above.
+_REGISTRY_DATA_KINDS = {
+    "REG_NONE": "bytes",
+    "REG_SZ": "str",
+    "REG_EXPAND_SZ": "str",
+    "REG_BINARY": "bytes",
+    "REG_DWORD": "int",
+    "REG_DWORD_BIG_ENDIAN": "int",
+    "REG_MULTI_SZ": "str-list",
+    "REG_RESOURCE_LIST": "bytes",
+    "REG_FULL_RESOURCE_DESCRIPTOR": "bytes",
+    "REG_RESOURCE_REQUIREMENTS_LIST": "bytes",
+    "REG_QWORD": "int",
+}
 
 
 @dataclass(frozen=True)
@@ -112,7 +138,7 @@ def top_view_values(top_view_key: str) -> list[RegValue]:
 
 def backup_dir_name(now: datetime) -> str:
     """Return the timestamped directory name for a registry backup."""
-    return now.strftime("view-backup-%Y%m%d-%H%M%S")
+    return now.strftime("view-backup-%Y%m%d-%H%M%S-%f")
 
 
 # ----------------------------------------------------------------------------
@@ -131,21 +157,26 @@ def _delete_key_tree(winreg, root, path: str) -> None:
     access = winreg.KEY_ALL_ACCESS | winreg.KEY_WOW64_64KEY
     try:
         key = winreg.OpenKey(root, path, 0, access)
-    except OSError:
+    except FileNotFoundError:
         return
     try:
         while True:
             try:
                 child = winreg.EnumKey(key, 0)
-            except OSError:
-                break
+            except OSError as exc:
+                if getattr(exc, "winerror", 259) == 259:
+                    break
+                raise
             _delete_key_tree(winreg, root, path + "\\" + child)
     finally:
         key.Close()
     try:
         winreg.DeleteKeyEx(root, path, winreg.KEY_WOW64_64KEY, 0)
+    except FileNotFoundError:
+        return
     except OSError:
-        LOG.warning("Could not delete registry key HKCU\\%s", path)
+        LOG.exception("Could not delete registry key HKCU\\%s", path)
+        raise
 
 
 def _copy_key_tree(winreg, src_root, src_path: str, dst_root, dst_path: str) -> None:
@@ -158,16 +189,20 @@ def _copy_key_tree(winreg, src_root, src_path: str, dst_root, dst_path: str) -> 
             while True:
                 try:
                     name, data, kind = winreg.EnumValue(src, index)
-                except OSError:
-                    break
+                except OSError as exc:
+                    if getattr(exc, "winerror", 259) == 259:
+                        break
+                    raise
                 winreg.SetValueEx(dst, name, 0, kind, data)
                 index += 1
         index = 0
         while True:
             try:
                 child = winreg.EnumKey(src, index)
-            except OSError:
-                break
+            except OSError as exc:
+                if getattr(exc, "winerror", 259) == 259:
+                    break
+                raise
             _copy_key_tree(
                 winreg, src_root, src_path + "\\" + child, dst_root, dst_path + "\\" + child
             )
@@ -175,16 +210,22 @@ def _copy_key_tree(winreg, src_root, src_path: str, dst_root, dst_path: str) -> 
 
 
 def _write_values(winreg, values: list[RegValue]) -> None:
-    """Apply a list of RegValue writes under HKCU."""
+    """Apply and verify a list of RegValue writes under HKCU."""
     kinds = {
         "dword": winreg.REG_DWORD,
         "sz": winreg.REG_SZ,
         "binary": winreg.REG_BINARY,
     }
-    access = winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY
+    access = winreg.KEY_READ | winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY
     for value in values:
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, value.key, 0, access) as key:
-            winreg.SetValueEx(key, value.name, 0, kinds[value.kind], value.data)
+            expected_kind = kinds[value.kind]
+            winreg.SetValueEx(key, value.name, 0, expected_kind, value.data)
+            actual_data, actual_kind = winreg.QueryValueEx(key, value.name)
+            if actual_kind != expected_kind or actual_data != value.data:
+                raise RuntimeError(
+                    f"Registry verification failed for HKCU\\{value.key}\\{value.name}."
+                )
 
 
 def _force_details_on_folder_types(winreg) -> int:
@@ -199,8 +240,10 @@ def _force_details_on_folder_types(winreg) -> int:
         while True:
             try:
                 type_guid = winreg.EnumKey(folder_types, index)
-            except OSError:
-                break
+            except OSError as exc:
+                if getattr(exc, "winerror", 259) == 259:
+                    break
+                raise
             index += 1
             top_views = rf"{FOLDER_TYPES_KEY}\{type_guid}\TopViews"
             try:
@@ -210,10 +253,12 @@ def _force_details_on_folder_types(winreg) -> int:
                     while True:
                         try:
                             view_guids.append(winreg.EnumKey(views, view_index))
-                        except OSError:
-                            break
+                        except OSError as exc:
+                            if getattr(exc, "winerror", 259) == 259:
+                                break
+                            raise
                         view_index += 1
-            except OSError:
+            except FileNotFoundError:
                 continue
             for view_guid in view_guids:
                 _write_values(winreg, top_view_values(rf"{top_views}\{view_guid}"))
@@ -227,254 +272,505 @@ def _key_exists(winreg, key: str) -> bool:
             winreg.HKEY_CURRENT_USER, key, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY
         ).Close()
         return True
-    except OSError:
+    except FileNotFoundError:
         return False
 
 
-def _backup_registry_state() -> str:
-    """Export the affected keys to .reg files. Returns the backup directory.
+def _backup_root() -> str:
+    """Return the directory that contains Explorer view backups."""
+    return os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Virelo")
 
-    Raises RuntimeError if a key that exists cannot be exported, so the caller
-    does not destroy view state it has no recovery backup for.
+
+def _create_backup_directory(now: datetime | None = None) -> str:
+    """Create and return a collision-resistant backup directory."""
+    base = _backup_root()
+    os.makedirs(base, exist_ok=True)
+    timestamp = now or datetime.now()
+    stem = backup_dir_name(timestamp)
+    for suffix in range(1000):
+        name = stem if suffix == 0 else f"{stem}-{suffix:03d}"
+        target = os.path.join(base, name)
+        try:
+            os.mkdir(target)
+            with open(os.path.join(target, BACKUP_PENDING_MARKER), "x", encoding="ascii"):
+                pass
+            return target
+        except FileExistsError:
+            continue
+    raise RuntimeError("Could not create a unique Explorer view backup directory.")
+
+
+def _registry_kind_maps(winreg) -> tuple[dict[int, str], dict[str, int]]:
+    """Return canonical mappings for registry kinds supported by snapshots."""
+    by_number: dict[int, str] = {}
+    by_name: dict[str, int] = {}
+    for name in _REGISTRY_DATA_KINDS:
+        number = getattr(winreg, name, None)
+        if isinstance(number, int):
+            by_number.setdefault(number, name)
+            by_name[name] = number
+    return by_number, by_name
+
+
+def _encode_registry_data(kind_name: str, data) -> dict:
+    """Encode one registry value without losing its native Python type."""
+    expected_type = _REGISTRY_DATA_KINDS.get(kind_name)
+    value: str | int | list[str]
+    if expected_type == "bytes" and isinstance(data, bytes):
+        value = base64.b64encode(data).decode("ascii")
+    elif expected_type == "str" and isinstance(data, str):
+        value = data
+    elif expected_type == "int" and isinstance(data, int) and not isinstance(data, bool):
+        value = data
+    elif (
+        expected_type == "str-list"
+        and isinstance(data, list)
+        and all(isinstance(item, str) for item in data)
+    ):
+        value = data
+    else:
+        raise RuntimeError(f"Unsupported data for registry kind {kind_name}.")
+    return {"type": expected_type, "value": value}
+
+
+def _decode_registry_data(kind_name: str, encoded) -> bytes | str | int | list[str]:
+    """Validate and decode one registry value from a snapshot."""
+    expected_type = _REGISTRY_DATA_KINDS.get(kind_name)
+    if expected_type is None or not isinstance(encoded, dict):
+        raise RuntimeError("Backup contains an unsupported registry value kind.")
+    if set(encoded) != {"type", "value"} or encoded.get("type") != expected_type:
+        raise RuntimeError("Backup contains an invalid registry value encoding.")
+
+    value = encoded.get("value")
+    if expected_type == "bytes":
+        if not isinstance(value, str):
+            raise RuntimeError("Backup contains invalid binary registry data.")
+        try:
+            return base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError, TypeError) as exc:
+            raise RuntimeError("Backup contains invalid binary registry data.") from exc
+    if expected_type == "str":
+        if isinstance(value, str):
+            return value
+    elif expected_type == "int":
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    elif expected_type == "str-list":
+        if isinstance(value, list) and all(isinstance(item, str) for item in value):
+            return value
+    raise RuntimeError("Backup contains invalid registry value data.")
+
+
+def _snapshot_key_tree(winreg, root, path: str, depth: int = 0) -> dict:
+    """Capture one registry tree using only the worker process's HKCU access."""
+    if depth > MAX_BACKUP_DEPTH:
+        raise RuntimeError("Explorer registry tree is too deeply nested to back up safely.")
+    read = winreg.KEY_READ | winreg.KEY_WOW64_64KEY
+    by_number, _ = _registry_kind_maps(winreg)
+    values = []
+    children = []
+    with winreg.OpenKey(root, path, 0, read) as key:
+        index = 0
+        while True:
+            try:
+                name, data, kind = winreg.EnumValue(key, index)
+            except OSError as exc:
+                if getattr(exc, "winerror", 259) == 259:
+                    break
+                raise
+            kind_name = by_number.get(kind)
+            if kind_name is None:
+                raise RuntimeError(f"HKCU\\{path} contains unsupported registry kind {kind}.")
+            values.append(
+                {
+                    "name": name,
+                    "kind": kind_name,
+                    "data": _encode_registry_data(kind_name, data),
+                }
+            )
+            index += 1
+
+        index = 0
+        while True:
+            try:
+                children.append(winreg.EnumKey(key, index))
+            except OSError as exc:
+                if getattr(exc, "winerror", 259) == 259:
+                    break
+                raise
+            index += 1
+
+    subkeys = [
+        {
+            "name": child,
+            "tree": _snapshot_key_tree(winreg, root, path + "\\" + child, depth + 1),
+        }
+        for child in children
+    ]
+    return {"values": values, "subkeys": subkeys}
+
+
+def _validate_snapshot_tree(tree, depth: int = 0) -> None:
+    """Fail closed on malformed or ambiguous snapshot trees."""
+    if depth > MAX_BACKUP_DEPTH:
+        raise RuntimeError("Backup registry tree is too deeply nested.")
+    if not isinstance(tree, dict) or set(tree) != {"values", "subkeys"}:
+        raise RuntimeError("Backup contains an invalid registry tree.")
+    values = tree.get("values")
+    subkeys = tree.get("subkeys")
+    if not isinstance(values, list) or not isinstance(subkeys, list):
+        raise RuntimeError("Backup contains an invalid registry tree.")
+
+    value_names: set[str] = set()
+    for value in values:
+        if not isinstance(value, dict) or set(value) != {"name", "kind", "data"}:
+            raise RuntimeError("Backup contains an invalid registry value.")
+        name = value.get("name")
+        kind_name = value.get("kind")
+        if not isinstance(name, str) or "\x00" in name or not isinstance(kind_name, str):
+            raise RuntimeError("Backup contains an invalid registry value.")
+        folded_name = name.casefold()
+        if folded_name in value_names:
+            raise RuntimeError("Backup contains duplicate registry values.")
+        value_names.add(folded_name)
+        _decode_registry_data(kind_name, value.get("data"))
+
+    subkey_names: set[str] = set()
+    for child in subkeys:
+        if not isinstance(child, dict) or set(child) != {"name", "tree"}:
+            raise RuntimeError("Backup contains an invalid registry subkey.")
+        name = child.get("name")
+        if not isinstance(name, str) or not name or "\x00" in name or "\\" in name or "/" in name:
+            raise RuntimeError("Backup contains an invalid registry subkey name.")
+        folded_name = name.casefold()
+        if folded_name in subkey_names:
+            raise RuntimeError("Backup contains duplicate registry subkeys.")
+        subkey_names.add(folded_name)
+        _validate_snapshot_tree(child.get("tree"), depth + 1)
+
+
+def _restore_key_tree(winreg, root, path: str, tree: dict) -> None:
+    """Restore a validated registry tree beneath one fixed HKCU path."""
+    _, by_name = _registry_kind_maps(winreg)
+    write = winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY
+    with winreg.CreateKeyEx(root, path, 0, write) as key:
+        for value in tree["values"]:
+            kind_name = value["kind"]
+            try:
+                kind = by_name[kind_name]
+            except KeyError as exc:
+                raise RuntimeError(
+                    f"This Windows version does not support registry kind {kind_name}."
+                ) from exc
+            data = _decode_registry_data(kind_name, value["data"])
+            winreg.SetValueEx(key, value["name"], 0, kind, data)
+    for child in tree["subkeys"]:
+        _restore_key_tree(winreg, root, path + "\\" + child["name"], child["tree"])
+
+
+def _write_backup_manifest(target: str, operation: str, entries: list[dict]) -> None:
+    """Atomically finalize and checksum a structured Explorer-view snapshot."""
+    manifest = {
+        "schema": BACKUP_SCHEMA_VERSION,
+        "created_at": datetime.now(UTC).isoformat(),
+        "operation": operation,
+        "entries": entries,
+    }
+    manifest_path = os.path.join(target, BACKUP_MANIFEST)
+    digest_path = os.path.join(target, BACKUP_DIGEST)
+    pending_manifest = manifest_path + ".tmp"
+    pending_digest = digest_path + ".tmp"
+    payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if len(payload) > MAX_BACKUP_BYTES:
+        raise RuntimeError("Backup manifest is too large to write safely.")
+    digest = hashlib.sha256(payload).hexdigest()
+    with open(pending_manifest, "xb") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+    with open(pending_digest, "x", encoding="ascii", newline="\n") as handle:
+        handle.write(digest + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(pending_manifest, manifest_path)
+    os.replace(pending_digest, digest_path)
+    try:
+        os.remove(os.path.join(target, BACKUP_PENDING_MARKER))
+    except FileNotFoundError:
+        pass
+
+
+def _backup_registry_state(operation: str = "unspecified") -> str:
+    """Snapshot every affected HKCU key and return a backup directory.
+
+    A manifest records both present and absent keys. Recovery first deletes all
+    affected keys and then recreates only those that existed, which also removes
+    keys created by a failed partial operation.
     """
     winreg = _open_winreg()
-    base = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Virelo")
-    target = os.path.join(base, backup_dir_name(datetime.now()))
-    os.makedirs(target, exist_ok=True)
-    for index, key in enumerate(BACKUP_KEYS):
-        out_file = os.path.join(target, f"{index:02d}-{key.rsplit(chr(92), 1)[-1]}.reg")
-        result = subprocess.run(
-            ["reg.exe", "export", "HKCU\\" + key, out_file, "/y", "/reg:64"],
-            capture_output=True,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            check=False,
-        )
-        if result.returncode != 0:
+    target = _create_backup_directory()
+    entries = []
+    for key in BACKUP_KEYS:
+        try:
+            tree = _snapshot_key_tree(winreg, winreg.HKEY_CURRENT_USER, key)
+        except FileNotFoundError:
             if _key_exists(winreg, key):
-                stderr = result.stderr.decode("utf-8", "replace").strip()
-                raise RuntimeError(
-                    f"Backup of existing key HKCU\\{key} failed: {stderr or 'reg.exe error'}"
-                )
-            # Key does not exist yet; nothing to back up.
+                raise
             LOG.info("Backup skipped for missing key HKCU\\%s", key)
+            tree = None
+        entries.append({"key": key, "existed": tree is not None, "tree": tree})
+
+    _write_backup_manifest(target, operation, entries)
     return target
 
 
-def _shell_token():
-    """Duplicate the running shell's token so Explorer can be relaunched
-    without inheriting this process's elevation. Returns a token handle
-    or None."""
-    import ctypes
-    from ctypes import wintypes
-
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
-
-    hwnd = user32.GetShellWindow()
-    if not hwnd:
-        return None
-    pid = wintypes.DWORD()
-    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-    if not pid.value:
-        return None
-
-    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-    process = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
-    if not process:
-        return None
+def _read_backup_manifest(backup: str) -> list[dict]:
+    """Read and validate a Virelo Explorer-view backup manifest."""
+    if os.path.exists(os.path.join(backup, BACKUP_PENDING_MARKER)):
+        raise RuntimeError("Backup is incomplete and cannot be restored.")
+    manifest_path = os.path.join(backup, BACKUP_MANIFEST)
+    digest_path = os.path.join(backup, BACKUP_DIGEST)
     try:
-        TOKEN_DUPLICATE = 0x0002
-        TOKEN_QUERY = 0x0008
-        token = wintypes.HANDLE()
-        if not advapi32.OpenProcessToken(
-            process, TOKEN_DUPLICATE | TOKEN_QUERY, ctypes.byref(token)
-        ):
-            return None
-        try:
-            MAXIMUM_ALLOWED = 0x02000000
-            SECURITY_IMPERSONATION = 2
-            TOKEN_PRIMARY = 1
-            primary = wintypes.HANDLE()
-            if not advapi32.DuplicateTokenEx(
-                token,
-                MAXIMUM_ALLOWED,
-                None,
-                SECURITY_IMPERSONATION,
-                TOKEN_PRIMARY,
-                ctypes.byref(primary),
-            ):
-                return None
-            return primary
-        finally:
-            kernel32.CloseHandle(token)
-    finally:
-        kernel32.CloseHandle(process)
+        if os.path.getsize(manifest_path) > MAX_BACKUP_BYTES:
+            raise RuntimeError("Backup manifest is too large to restore safely.")
+        if os.path.getsize(digest_path) > 129:
+            raise RuntimeError("Backup digest is too large to restore safely.")
+        with open(manifest_path, "rb") as handle:
+            payload = handle.read(MAX_BACKUP_BYTES + 1)
+        with open(digest_path, encoding="ascii") as handle:
+            expected_digest = handle.read(129).strip()
+    except FileNotFoundError as exc:
+        # Backups created before manifests cannot prove whether a missing .reg
+        # file means the key was absent or an export failed partway through.
+        # Treating that ambiguity as an absent key would delete live state
+        # during restore, so automatic recovery must fail closed.
+        raise RuntimeError("Legacy .reg backups cannot be restored automatically.") from exc
+    except OSError as exc:
+        raise RuntimeError(f"Backup manifest could not be read: {exc}") from exc
 
-
-def _is_elevated() -> bool:
+    if (
+        len(expected_digest) != 64
+        or any(character not in "0123456789abcdef" for character in expected_digest)
+        or hashlib.sha256(payload).hexdigest() != expected_digest
+    ):
+        raise RuntimeError("Backup manifest failed its SHA-256 integrity check.")
     try:
-        import ctypes
+        manifest = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise RuntimeError(f"Backup manifest could not be read: {exc}") from exc
 
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except Exception:
-        return False
+    if not isinstance(manifest, dict) or set(manifest) != {
+        "schema",
+        "created_at",
+        "operation",
+        "entries",
+    }:
+        raise RuntimeError("Backup manifest has an invalid structure.")
+    if manifest.get("schema") != BACKUP_SCHEMA_VERSION:
+        raise RuntimeError("Backup manifest uses an unsupported schema version.")
+    if not isinstance(manifest.get("created_at"), str) or not isinstance(
+        manifest.get("operation"), str
+    ):
+        raise RuntimeError("Backup manifest has invalid recovery metadata.")
+    entries = manifest.get("entries")
+    if not isinstance(entries, list) or len(entries) != len(BACKUP_KEYS):
+        raise RuntimeError("Backup manifest does not describe every affected registry key.")
+
+    by_key = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise RuntimeError("Backup manifest contains an unexpected registry key.")
+        entry_key = entry.get("key")
+        if not isinstance(entry_key, str) or entry_key not in BACKUP_KEYS:
+            raise RuntimeError("Backup manifest contains an unexpected registry key.")
+        if entry_key in by_key or not isinstance(entry.get("existed"), bool):
+            raise RuntimeError("Backup manifest contains an invalid registry entry.")
+        if set(entry) != {"key", "existed", "tree"}:
+            raise RuntimeError("Backup manifest contains an invalid registry entry.")
+        tree = entry.get("tree")
+        if entry["existed"] != (tree is not None):
+            raise RuntimeError("Backup manifest does not match its registry-key state.")
+        if tree is not None:
+            _validate_snapshot_tree(tree)
+        by_key[entry_key] = entry
+    if set(by_key) != set(BACKUP_KEYS):
+        raise RuntimeError("Backup manifest is missing an affected registry key.")
+    return [by_key[key] for key in BACKUP_KEYS]
 
 
-def restart_explorer() -> bool:
-    """Kill and relaunch Explorer, de-elevating the new shell if possible.
+def _restore_registry_state(backup: str) -> None:
+    """Exactly restore all affected keys from a verified Virelo backup."""
+    entries = _read_backup_manifest(backup)
+    winreg = _open_winreg()
 
-    Returns True if a new Explorer process was started.
+    for key in VIEW_CACHE_KEYS:
+        _delete_key_tree(winreg, winreg.HKEY_CURRENT_USER, key)
 
-    Safety: when this process is elevated we must NOT relaunch Explorer with
-    our own token, or the whole desktop shell would run at high integrity.
-    If de-elevation via the shell token is unavailable, we skip the restart
-    entirely and let the caller tell the user to restart Explorer or sign
-    out, rather than spawning an elevated shell.
-    """
-    import ctypes
-    from ctypes import wintypes
+    for entry in entries:
+        if entry["existed"]:
+            _restore_key_tree(
+                winreg,
+                winreg.HKEY_CURRENT_USER,
+                entry["key"],
+                entry["tree"],
+            )
 
-    token = _shell_token()
-    elevated = _is_elevated()
-    if elevated and token is None:
-        LOG.warning(
-            "Skipping Explorer restart: cannot de-elevate the new shell. "
-            "The user must restart Explorer manually."
-        )
-        return False
 
-    result = subprocess.run(
-        ["taskkill.exe", "/f", "/im", "explorer.exe"],
-        capture_output=True,
-        creationflags=subprocess.CREATE_NO_WINDOW,
-        check=False,
-    )
-    if result.returncode not in (0, 128):
-        LOG.warning("taskkill explorer.exe returned %s", result.returncode)
-    time.sleep(1.0)
-
-    explorer = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "explorer.exe")
-    if token is not None:
-        advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-
-        class STARTUPINFO(ctypes.Structure):
-            _fields_ = [
-                ("cb", wintypes.DWORD),
-                ("lpReserved", wintypes.LPWSTR),
-                ("lpDesktop", wintypes.LPWSTR),
-                ("lpTitle", wintypes.LPWSTR),
-                ("dwX", wintypes.DWORD),
-                ("dwY", wintypes.DWORD),
-                ("dwXSize", wintypes.DWORD),
-                ("dwYSize", wintypes.DWORD),
-                ("dwXCountChars", wintypes.DWORD),
-                ("dwYCountChars", wintypes.DWORD),
-                ("dwFillAttribute", wintypes.DWORD),
-                ("dwFlags", wintypes.DWORD),
-                ("wShowWindow", wintypes.WORD),
-                ("cbReserved2", wintypes.WORD),
-                ("lpReserved2", ctypes.c_void_p),
-                ("hStdInput", wintypes.HANDLE),
-                ("hStdOutput", wintypes.HANDLE),
-                ("hStdError", wintypes.HANDLE),
-            ]
-
-        class PROCESS_INFORMATION(ctypes.Structure):
-            _fields_ = [
-                ("hProcess", wintypes.HANDLE),
-                ("hThread", wintypes.HANDLE),
-                ("dwProcessId", wintypes.DWORD),
-                ("dwThreadId", wintypes.DWORD),
-            ]
-
-        startup = STARTUPINFO()
-        startup.cb = ctypes.sizeof(STARTUPINFO)
-        info = PROCESS_INFORMATION()
-        launched = advapi32.CreateProcessWithTokenW(
-            token,
-            0,
-            explorer,
-            None,
-            0,
-            None,
-            None,
-            ctypes.byref(startup),
-            ctypes.byref(info),
-        )
-        if launched:
-            kernel32.CloseHandle(info.hProcess)
-            kernel32.CloseHandle(info.hThread)
-        kernel32.CloseHandle(token)
-        if launched:
-            return True
-        LOG.warning("CreateProcessWithTokenW failed (error %s)", ctypes.get_last_error())
-        if elevated:
-            # Never relaunch Explorer with our elevated token as a fallback.
-            LOG.warning("Not relaunching Explorer to avoid an elevated shell.")
-            return False
-
-    # Only reached when not elevated (direct launch inherits normal integrity).
+def _latest_backup_directory() -> str | None:
+    """Return the newest complete Explorer-view backup, if one exists."""
+    root = _backup_root()
     try:
-        subprocess.Popen([explorer], close_fds=True)
-        return True
+        names = sorted(os.listdir(root), reverse=True)
     except OSError:
-        LOG.exception("Failed to relaunch Explorer")
-        return False
+        return None
+    for name in names:
+        path = os.path.join(root, name)
+        if not name.startswith("view-backup-") or not os.path.isdir(path):
+            continue
+        try:
+            _read_backup_manifest(path)
+            return path
+        except RuntimeError:
+            LOG.warning("Ignoring incomplete Explorer-view backup at %s", path)
+    return None
 
 
 def apply_details_default() -> dict:
-    """Make Details view the default for all folders. Restarts Explorer.
-
-    Returns a bridge-style result dict.
-    """
+    """Make Details view the default for all folders."""
     winreg = _open_winreg()
+    backup = None
     try:
-        backup = _backup_registry_state()
+        backup = _backup_registry_state("apply-details")
 
-        for key in VIEW_CACHE_KEYS:
-            _delete_key_tree(winreg, winreg.HKEY_CURRENT_USER, key)
+        try:
+            for key in VIEW_CACHE_KEYS:
+                _delete_key_tree(winreg, winreg.HKEY_CURRENT_USER, key)
 
-        _copy_key_tree(
-            winreg,
-            winreg.HKEY_LOCAL_MACHINE,
-            FOLDER_TYPES_KEY,
-            winreg.HKEY_CURRENT_USER,
-            FOLDER_TYPES_KEY,
-        )
-        updated = _force_details_on_folder_types(winreg)
-        _write_values(winreg, this_pc_bag_values())
+            _copy_key_tree(
+                winreg,
+                winreg.HKEY_LOCAL_MACHINE,
+                FOLDER_TYPES_KEY,
+                winreg.HKEY_CURRENT_USER,
+                FOLDER_TYPES_KEY,
+            )
+            updated = _force_details_on_folder_types(winreg)
+            _write_values(winreg, this_pc_bag_values())
+        except Exception as exc:
+            LOG.exception("Details-view registry update failed; restoring %s", backup)
+            try:
+                _restore_registry_state(backup)
+            except Exception as rollback_exc:
+                LOG.exception("Automatic Explorer-view rollback failed")
+                return {
+                    "ok": False,
+                    "error": f"{exc}. Automatic rollback also failed: {rollback_exc}",
+                    "data": {"backup": backup, "rolled_back": False},
+                }
+            return {
+                "ok": False,
+                "error": str(exc),
+                "data": {"backup": backup, "rolled_back": True},
+            }
 
-        restarted = restart_explorer()
         LOG.info(
-            "Details view applied: %d folder views updated, backup at %s, restart=%s",
+            "Details view applied: %d folder views updated, backup at %s",
             updated,
             backup,
-            restarted,
         )
         return {
             "ok": True,
-            "data": {"updated": updated, "backup": backup, "restarted": restarted},
+            "data": {"updated": updated, "backup": backup, "restarted": False},
         }
     except Exception as e:
         LOG.exception("apply_details_default failed")
-        return {"ok": False, "error": str(e)}
+        data = {"backup": backup} if backup else {}
+        return {"ok": False, "error": str(e), "data": data}
 
 
 def reset_folder_views() -> dict:
-    """Remove all custom view state so Explorer returns to Windows defaults.
-
-    Restarts Explorer. Returns a bridge-style result dict.
-    """
+    """Remove custom view state so Explorer returns to Windows defaults."""
     winreg = _open_winreg()
+    backup = None
     try:
-        backup = _backup_registry_state()
-        for key in VIEW_CACHE_KEYS:
-            _delete_key_tree(winreg, winreg.HKEY_CURRENT_USER, key)
-        restarted = restart_explorer()
-        LOG.info("Folder views reset to defaults, backup at %s, restart=%s", backup, restarted)
-        return {"ok": True, "data": {"backup": backup, "restarted": restarted}}
+        backup = _backup_registry_state("reset-views")
+        try:
+            for key in VIEW_CACHE_KEYS:
+                _delete_key_tree(winreg, winreg.HKEY_CURRENT_USER, key)
+        except Exception as exc:
+            LOG.exception("Folder-view reset failed; restoring %s", backup)
+            try:
+                _restore_registry_state(backup)
+            except Exception as rollback_exc:
+                LOG.exception("Automatic Explorer-view rollback failed")
+                return {
+                    "ok": False,
+                    "error": f"{exc}. Automatic rollback also failed: {rollback_exc}",
+                    "data": {"backup": backup, "rolled_back": False},
+                }
+            return {
+                "ok": False,
+                "error": str(exc),
+                "data": {"backup": backup, "rolled_back": True},
+            }
+        LOG.info("Folder views reset, backup at %s", backup)
+        return {"ok": True, "data": {"backup": backup, "restarted": False}}
     except Exception as e:
         LOG.exception("reset_folder_views failed")
-        return {"ok": False, "error": str(e)}
+        data = {"backup": backup} if backup else {}
+        return {"ok": False, "error": str(e), "data": data}
+
+
+def restore_latest_view_backup() -> dict:
+    """Restore the latest complete Explorer-view backup."""
+    target = _latest_backup_directory()
+    if target is None:
+        return {"ok": False, "error": "No complete Explorer view backup was found."}
+
+    safety_backup = None
+    try:
+        safety_backup = _backup_registry_state("pre-restore")
+        try:
+            _restore_registry_state(target)
+        except Exception as exc:
+            LOG.exception("Restoring Explorer-view backup %s failed", target)
+            try:
+                _restore_registry_state(safety_backup)
+            except Exception as rollback_exc:
+                LOG.exception("Restoring the pre-restore safety backup failed")
+                return {
+                    "ok": False,
+                    "error": f"{exc}. Safety rollback also failed: {rollback_exc}",
+                    "data": {
+                        "backup": target,
+                        "safety_backup": safety_backup,
+                        "rolled_back": False,
+                    },
+                }
+            return {
+                "ok": False,
+                "error": str(exc),
+                "data": {
+                    "backup": target,
+                    "safety_backup": safety_backup,
+                    "rolled_back": True,
+                },
+            }
+        LOG.info(
+            "Explorer view backup restored: source=%s safety=%s",
+            target,
+            safety_backup,
+        )
+        return {
+            "ok": True,
+            "data": {
+                "backup": target,
+                "safety_backup": safety_backup,
+                "restarted": False,
+            },
+        }
+    except Exception as exc:
+        LOG.exception("restore_latest_view_backup failed")
+        data = {"backup": target}
+        if safety_backup:
+            data["safety_backup"] = safety_backup
+        return {"ok": False, "error": str(exc), "data": data}

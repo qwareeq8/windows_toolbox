@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { ThemeProvider } from "../theme.jsx";
 import VireloApp, { bridgeToState, stateToBridge } from "../app.jsx";
 
 describe("bridgeToState", () => {
-  it("maps Python snake_case keys to React camelCase", () => {
+  it("Maps Python snake_case keys to React camelCase.", () => {
     const result = bridgeToState({
       enable_snap: true,
       snap_key: "shift",
@@ -29,13 +29,13 @@ describe("bridgeToState", () => {
     expect(result.launchLogin).toBe(false);
   });
 
-  it("uppercases snap_key and restore_key", () => {
+  it("Uppercases snap_key and restore_key.", () => {
     const result = bridgeToState({ snap_key: "ctrl", restore_key: "alt" });
     expect(result.snapKey).toBe("CTRL");
     expect(result.restoreKey).toBe("ALT");
   });
 
-  it("applies default values via nullish coalescing", () => {
+  it("Applies default values through nullish coalescing.", () => {
     const result = bridgeToState({});
     expect(result.snapEnabled).toBe(true);
     expect(result.snapKey).toBe("SHIFT");
@@ -49,7 +49,7 @@ describe("bridgeToState", () => {
     expect(result.launchLogin).toBe(false);
   });
 
-  it("handles explicit false values without falling back", () => {
+  it("Handles explicit false values without falling back.", () => {
     const result = bridgeToState({
       enable_snap: false,
       game_mode_enabled: false,
@@ -60,7 +60,7 @@ describe("bridgeToState", () => {
 });
 
 describe("stateToBridge", () => {
-  it("maps React camelCase keys back to Python snake_case JSON", () => {
+  it("Maps React camelCase keys back to Python snake_case JSON.", () => {
     const json = stateToBridge({
       snapEnabled: true,
       snapKey: "SHIFT",
@@ -86,14 +86,14 @@ describe("stateToBridge", () => {
     expect(parsed.run_at_startup).toBe(false);
   });
 
-  it("lowercases key names for Python bridge", () => {
+  it("Lowercases key names for the Python bridge.", () => {
     const json = stateToBridge({ snapKey: "SHIFT", restoreKey: "ALT" });
     const parsed = JSON.parse(json);
     expect(parsed.snap_key).toBe("shift");
     expect(parsed.restore_key).toBe("alt");
   });
 
-  it("returns a valid JSON string", () => {
+  it("Returns a valid JSON string.", () => {
     const json = stateToBridge({
       snapEnabled: true,
       snapKey: "SHIFT",
@@ -114,13 +114,15 @@ describe("stateToBridge", () => {
 // A minimal bridge mock for full-app renders. Callbacks resolve synchronously
 // so tests can assert call ordering without awaiting the event loop.
 function makeBridge() {
+  const signal = () => ({ connect: vi.fn(), disconnect: vi.fn() });
   return {
     get_settings: vi.fn((cb) => cb(JSON.stringify({ ok: true, data: {} }))),
-    settings_changed: { connect: vi.fn() },
-    dirty_changed: { connect: vi.fn() },
-    snap_status: { connect: vi.fn() },
-    capture_status: { connect: vi.fn(), disconnect: vi.fn() },
-    views_status: { connect: vi.fn() },
+    settings_changed: signal(),
+    dirty_changed: signal(),
+    snap_status: signal(),
+    capture_status: signal(),
+    views_status: signal(),
+    views_task_changed: signal(),
     save_settings: vi.fn((json, cb) => cb(JSON.stringify({ ok: true }))),
     commit_draft: vi.fn((cb) => cb(JSON.stringify({ ok: true }))),
     discard_draft: vi.fn((cb) => cb(JSON.stringify({ ok: true }))),
@@ -128,6 +130,9 @@ function makeBridge() {
     test_snap: vi.fn(),
     capture_key: vi.fn(),
     setWindowCommand: vi.fn(),
+    apply_details_view: vi.fn((cb) => cb(JSON.stringify({ ok: true, data: { started: true } }))),
+    reset_folder_views: vi.fn((cb) => cb(JSON.stringify({ ok: true, data: { started: true } }))),
+    restore_folder_views: vi.fn((cb) => cb(JSON.stringify({ ok: true, data: { started: true } }))),
   };
 }
 
@@ -146,12 +151,101 @@ function renderApp(bridge) {
   );
 }
 
+describe("Bridge-backed application behavior", () => {
+  it("Keeps title-bar controls accessible and outside the draggable spacer.", () => {
+    const bridge = makeBridge();
+    renderApp(bridge);
+
+    const search = screen.getByRole("button", { name: "Search settings and commands" });
+    const minimize = screen.getByRole("button", { name: "Minimize Virelo" });
+    const close = screen.getByRole("button", { name: "Close Virelo" });
+
+    expect(search).toHaveStyle({ width: "220px", flex: "0 0 220px" });
+    expect(search.previousElementSibling).toHaveStyle({ flex: "1" });
+    expect(search.compareDocumentPosition(minimize)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(minimize.compareDocumentPosition(close)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("Allows the main content pane to shrink at the native minimum window width.", () => {
+    const bridge = makeBridge();
+    const { container } = renderApp(bridge);
+
+    expect(container.querySelector("main")).toHaveStyle({ minWidth: "0" });
+  });
+
+  it("Disconnects every application signal subscription on unmount.", () => {
+    const bridge = makeBridge();
+    const { unmount } = renderApp(bridge);
+    const signals = [
+      bridge.settings_changed,
+      bridge.dirty_changed,
+      bridge.snap_status,
+      bridge.capture_status,
+      bridge.views_status,
+      bridge.views_task_changed,
+    ];
+
+    unmount();
+
+    for (const signal of signals) {
+      const handler = signal.connect.mock.calls[0][0];
+      expect(signal.disconnect).toHaveBeenCalledOnce();
+      expect(signal.disconnect).toHaveBeenCalledWith(handler);
+    }
+  });
+
+  it("Keeps folder-view actions busy until the task signal reports completion.", async () => {
+    const bridge = makeBridge();
+    const { container } = renderApp(bridge);
+    fireEvent.click(screen.getByRole("button", { name: "Explorer" }));
+    const opener = screen.getByRole("button", { name: "Make Details the default" });
+    opener.focus();
+    fireEvent.click(opener);
+    const appShell = container.querySelector("[data-app-shell]");
+    expect(appShell).toHaveAttribute("inert");
+    expect(appShell).toHaveAttribute("aria-hidden", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Apply Details default" }));
+
+    const working = screen.getByRole("button", { name: "Working..." });
+    expect(appShell).not.toHaveAttribute("inert");
+    expect(appShell).not.toHaveAttribute("aria-hidden");
+    expect(working).toHaveAttribute("aria-disabled", "true");
+    await waitFor(() =>
+      expect(
+        screen.getByText("Folder view task is running. Keep Virelo open until it finishes."),
+      ).toHaveFocus(),
+    );
+    expect(bridge.apply_details_view).toHaveBeenCalledOnce();
+
+    const onViewsStatus = bridge.views_status.connect.mock.calls[0][0];
+    act(() => onViewsStatus("Explorer is restarting.", 3000));
+    expect(screen.getByRole("button", { name: "Working..." })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    const onTaskChanged = bridge.views_task_changed.connect.mock.calls[0][0];
+    act(() => onTaskChanged(JSON.stringify({ kind: "apply", state: "succeeded" })));
+    expect(screen.getByRole("button", { name: "Make Details the default" })).toBeEnabled();
+  });
+
+  it("Announces backend messages through the footer live region.", () => {
+    const bridge = makeBridge();
+    renderApp(bridge);
+    const onSnapStatus = bridge.snap_status.connect.mock.calls[0][0];
+
+    act(() => onSnapStatus("Window centered.", 3000));
+
+    expect(screen.getByText("Window centered.")).toHaveAttribute("role", "status");
+  });
+});
+
 describe("throttled draft writes versus save, discard, and reset", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("flushes the queued trailing write before committing on save", () => {
+  it("Flushes the queued trailing write before committing on save.", () => {
     vi.useFakeTimers();
     const bridge = makeBridge();
     renderApp(bridge);
@@ -176,7 +270,7 @@ describe("throttled draft writes versus save, discard, and reset", () => {
     expect(bridge.save_settings).toHaveBeenCalledTimes(2);
   });
 
-  it("cancels the queued trailing write on discard", () => {
+  it("Cancels the queued trailing write on discard.", () => {
     vi.useFakeTimers();
     const bridge = makeBridge();
     renderApp(bridge);
@@ -196,7 +290,7 @@ describe("throttled draft writes versus save, discard, and reset", () => {
     expect(bridge.save_settings).toHaveBeenCalledTimes(1);
   });
 
-  it("cancels the queued trailing write on reset", () => {
+  it("Cancels the queued trailing write on reset.", () => {
     vi.useFakeTimers();
     const bridge = makeBridge();
     renderApp(bridge);
