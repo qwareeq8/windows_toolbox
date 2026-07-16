@@ -85,6 +85,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
 testpaths = ["tests"]
 markers = [
     "requires_qt: marks tests that require an initialized PySide6/Qt runtime",

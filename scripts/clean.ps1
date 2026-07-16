@@ -3,21 +3,36 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Resolve-Path "$PSScriptRoot\.."
 Set-Location $projectRoot
 
-$targets = @(
+$artifactTargets = @(
     "build",
     "dist",
     "frontend\dist",
-    "installer\dist",
+    "installer\dist"
+)
+
+$cacheTargets = @(
     ".pytest_cache",
     ".ruff_cache",
     "htmlcov",
     "virelo.egg-info"
 )
 
-foreach ($target in $targets) {
+foreach ($target in $artifactTargets) {
     if (Test-Path $target) {
         Write-Host "[clean] Removing $target"
         Remove-Item -Recurse -Force $target
+    }
+}
+
+foreach ($target in $cacheTargets) {
+    if (-not (Test-Path $target)) {
+        continue
+    }
+    Write-Host "[clean] Removing optional cache $target"
+    try {
+        Remove-Item -Recurse -Force $target -ErrorAction Stop
+    } catch {
+        Write-Warning "Could not remove optional cache '$target': $($_.Exception.Message)"
     }
 }
 
