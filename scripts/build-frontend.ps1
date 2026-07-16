@@ -1,53 +1,69 @@
 $ErrorActionPreference = "Stop"
 
-$projectRoot = Resolve-Path "$PSScriptRoot\.."
+$projectRoot = (Resolve-Path "$PSScriptRoot\..").Path
 Set-Location $projectRoot
+. "$PSScriptRoot\release-common.ps1"
 
-# --- Precondition checks ---
 $node = Get-Command node -ErrorAction SilentlyContinue
-if (-not $node) { throw "Node.js not found. Install from https://nodejs.org" }
-
 $npm = Get-Command npm -ErrorAction SilentlyContinue
-if (-not $npm) { throw "npm not found. Install Node.js from https://nodejs.org" }
+if (-not $node -or -not $npm) {
+    throw "Node.js and npm are required to build the frontend."
+}
+$nodeVersion = (& node --version 2>&1 | Out-String).Trim()
+if ($nodeVersion -notmatch '^v(22|23|24)\.') {
+    throw "Node.js 22 to 24 is required, but $nodeVersion is active."
+}
 
-Write-Host "[build-frontend] Node $(node --version), npm $(npm --version)"
+$appVersion = Get-VireloAppVersion -ProjectRoot $projectRoot
+Write-Host "[build-frontend] Node $nodeVersion, npm $(& npm --version), version $appVersion."
 
-# --- Read version from virelo/app/config.py ---
-$versionMatch = Select-String -Path "virelo\app\config.py" -Pattern 'APP_VERSION\s*=\s*"([^"]+)"'
-if (-not $versionMatch) { throw "APP_VERSION not found in virelo/app/config.py" }
-$env:VITE_APP_VERSION = $versionMatch.Matches.Groups[1].Value
-Write-Host "[build-frontend] Version: $env:VITE_APP_VERSION"
-
-# --- Install dependencies if needed, then build ---
-# The try/finally keeps the location stack balanced when a step throws.
+$previousVersion = $env:VITE_APP_VERSION
+$hadPreviousVersion = Test-Path Env:VITE_APP_VERSION
+$env:VITE_APP_VERSION = $appVersion
 Push-Location frontend
 try {
-    # Reinstall when node_modules is missing or the lockfile is newer than
-    # the installed tree, so a lockfile change is never built against stale
-    # dependencies.
-    $needsInstall = -not (Test-Path "node_modules")
-    if (-not $needsInstall -and (Test-Path "package-lock.json")) {
-        $lockTime = (Get-Item "package-lock.json").LastWriteTimeUtc
-        $modTime = (Get-Item "node_modules").LastWriteTimeUtc
-        if ($lockTime -gt $modTime) { $needsInstall = $true }
-    }
-    if ($needsInstall) {
-        Write-Host "[build-frontend] Installing dependencies..."
-        npm ci
-        if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
+    Write-Host "[build-frontend] Installing locked dependencies."
+    & npm ci
+    if ($LASTEXITCODE -ne 0) {
+        throw "npm ci failed."
     }
 
-    # --- Build ---
-    Write-Host "[build-frontend] Building frontend..."
-    npm run build
-    if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
+    Write-Host "[build-frontend] Running static checks and tests."
+    foreach ($script in @("lint", "format:check", "test", "build")) {
+        & npm run $script
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm run $script failed."
+        }
+    }
 } finally {
     Pop-Location
+    if ($hadPreviousVersion) {
+        $env:VITE_APP_VERSION = $previousVersion
+    } else {
+        Remove-Item Env:VITE_APP_VERSION -ErrorAction SilentlyContinue
+    }
 }
 
-# --- Postcondition check ---
-if (-not (Test-Path "frontend\dist\index.html")) {
-    throw "Frontend build failed: frontend\dist\index.html not found"
+$indexPath = "frontend\dist\index.html"
+if (-not (Test-Path -LiteralPath $indexPath -PathType Leaf)) {
+    throw "The frontend build did not create $indexPath."
+}
+$assetPaths = [regex]::Matches(
+    [System.IO.File]::ReadAllText((Resolve-Path $indexPath)),
+    '(?:src|href)="\.\/([^"#?]+)"'
+) | ForEach-Object { $_.Groups[1].Value }
+if (-not $assetPaths) {
+    throw "The frontend index does not reference any built assets."
+}
+foreach ($assetPath in $assetPaths) {
+    if (-not (Test-Path -LiteralPath (Join-Path "frontend\dist" $assetPath) -PathType Leaf)) {
+        throw "The frontend index references a missing asset: $assetPath."
+    }
+}
+$javascript = Get-ChildItem -LiteralPath "frontend\dist" -Recurse -File -Filter "*.js"
+$versionFound = $javascript | Select-String -SimpleMatch $appVersion -Quiet
+if (-not $versionFound) {
+    throw "The release version was not embedded in the frontend JavaScript."
 }
 
-Write-Host "[build-frontend] OK: frontend/dist/index.html exists"
+Write-Host "[build-frontend] OK: The versioned frontend passed checks and was built."

@@ -6,53 +6,103 @@ on:
   pull_request:
     branches: [main]
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - run: pip install ruff
-      - run: ruff check .
-      - run: ruff format --check .
+permissions:
+  contents: read
 
-  test:
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: '3.12'
-          cache: 'pip'
-      - run: pip install -e ".[dev]"
-      - run: pytest tests/unit/ -q
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements/build-constraints.txt
+      - name: Install the constrained test environment
+        run: |
+          python -m pip install --upgrade --constraint requirements/build-constraints.txt pip setuptools
+          python -m pip install --constraint requirements/build-constraints.txt --editable ".[dev]"
+          python -m pip check
+      - name: Check Python formatting and lint
+        run: |
+          python -m ruff check .
+          python -m ruff format --check .
+          python -m mypy virelo main.py
+      - name: Run Python unit tests
+        run: python -m pytest tests/unit/ -q
 
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      - name: Install locked frontend dependencies
+        run: npm ci
         working-directory: frontend
-      - run: npm run build
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
         working-directory: frontend
-      - run: npx vitest run
+      - name: Check frontend lint and formatting
+        run: |
+          npm run lint
+          npm run format:check
+        working-directory: frontend
+      - name: Test and build the frontend
+        run: |
+          npm test
+          npm run build
         working-directory: frontend
 
-  stale-name:
+  metadata:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+      - name: Check version metadata
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          config = Path("virelo/app/config.py").read_text(encoding="utf-8")
+          match = re.search(r'^APP_VERSION\s*=\s*"(\d+\.\d+\.\d+)"\s*$', config, re.MULTILINE)
+          if not match:
+              raise SystemExit("APP_VERSION is missing or invalid.")
+          expected = match.group(1)
+          package = json.loads(Path("frontend/package.json").read_text(encoding="utf-8"))
+          lock = json.loads(Path("frontend/package-lock.json").read_text(encoding="utf-8"))
+          versions = {
+              "package.json": package["version"],
+              "package-lock.json": lock["version"],
+              "package-lock.json root": lock["packages"][""]["version"],
+          }
+          mismatches = {name: version for name, version in versions.items() if version != expected}
+          if mismatches:
+              raise SystemExit(f"Version mismatch: expected {expected}, found {mismatches}.")
+          print(f"All version records match {expected}.")
+          PY
       - name: Check for stale legacy-name references
-        # ci.yml, verify-release.ps1, and CLAUDE.md legitimately contain the word
-        # in their own check logic or rules, so they are excluded by name.
+        shell: bash
         run: |
           if grep -rniw "toolbox" . \
             --include="*.py" --include="*.jsx" --include="*.js" \
@@ -63,32 +113,38 @@ jobs:
             --exclude-dir=dist --exclude-dir=build \
             --exclude-dir=.planning --exclude-dir=.venv \
             --exclude=ci.yml --exclude=verify-release.ps1 --exclude=CLAUDE.md; then
-            echo "ERROR: Found stale legacy-name references"
+            echo "ERROR: Found stale legacy-name references."
             exit 1
           fi
-          echo "OK: No stale references found"
+          echo "OK: No stale references were found."
 
-  version-check:
-    runs-on: ubuntu-latest
+  windows-package-smoke:
+    runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
-      - name: Check version consistency (config.py vs package.json)
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements/build-constraints.txt
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Create the constrained build environment
+        shell: pwsh
+        run: .\scripts\bootstrap.ps1 -Recreate
+      - name: Test the PowerShell release helpers
+        shell: pwsh
+        run: .\scripts\test-release-tools.ps1
+      - name: Build and smoke-test the Windows bundle
+        shell: pwsh
+        run: .\scripts\build-app.ps1
+      - name: Build and verify the unsigned Windows installer
+        shell: pwsh
         run: |
-          PY_VERSION=$(grep -oP 'APP_VERSION\s*=\s*"\K[^"]+' virelo/app/config.py)
-          PKG_VERSION=$(grep -oP '"version"\s*:\s*"\K[^"]+' frontend/package.json | head -n1)
-          echo "config.py APP_VERSION:  $PY_VERSION"
-          echo "package.json version:   $PKG_VERSION"
-          if [ "$PY_VERSION" != "$PKG_VERSION" ]; then
-            echo "ERROR: Version mismatch"
-            exit 1
-          fi
-          echo "OK: Versions match ($PY_VERSION)"
-      - name: Check pyproject.toml keeps the version dynamic
-        # The package version must resolve from virelo/app/config.py, the single
-        # source of truth. A static version in pyproject.toml would reintroduce drift.
-        run: |
-          if ! grep -q 'dynamic = \["version"\]' pyproject.toml; then
-            echo 'ERROR: pyproject.toml must declare dynamic = ["version"] so the version derives from virelo/app/config.py'
-            exit 1
-          fi
-          echo "OK: pyproject.toml version is dynamic"
+          .\scripts\build-installer.ps1 -SkipAppBuild
+          .\scripts\verify-release.ps1

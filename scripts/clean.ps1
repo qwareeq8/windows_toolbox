@@ -9,7 +9,10 @@ $targets = @(
     "frontend\dist",
     "installer\dist",
     ".pytest_cache",
-    ".ruff_cache"
+    ".pytest-tmp",
+    ".ruff_cache",
+    "htmlcov",
+    "virelo.egg-info"
 )
 
 foreach ($target in $targets) {
@@ -37,4 +40,9 @@ Get-ChildItem -Recurse -Filter "*.pyc" -ErrorAction SilentlyContinue |
         Remove-Item -Force $_.FullName
     }
 
-Write-Host "[clean] OK: Build artifacts removed"
+if (Test-Path -LiteralPath ".coverage" -PathType Leaf) {
+    Write-Host "[clean] Removing .coverage"
+    Remove-Item -LiteralPath ".coverage" -Force
+}
+
+Write-Host "[clean] OK: Build artifacts were removed."
