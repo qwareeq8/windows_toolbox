@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { ThemeProvider } from "../theme.jsx";
 import VireloApp, { bridgeToState, stateToBridge } from "../app.jsx";
@@ -240,75 +240,66 @@ describe("Bridge-backed application behavior", () => {
   });
 });
 
-describe("throttled draft writes versus save, discard, and reset", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("Flushes the queued trailing write before committing on save.", () => {
-    vi.useFakeTimers();
+describe("draft writes versus save, discard, reset, and quit", () => {
+  it("Sends every edit before committing on save.", () => {
     const bridge = makeBridge();
     renderApp(bridge);
     // The second switch on the default Window snap page is Game mode.
     const toggle = screen.getAllByRole("switch")[1];
     fireEvent.click(toggle);
-    expect(bridge.save_settings).toHaveBeenCalledTimes(1);
-    // A second change inside the throttle window only queues a trailing write.
     fireEvent.click(toggle);
-    expect(bridge.save_settings).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByText("Save changes"));
-    // The queued write goes out before the commit, in that order.
     expect(bridge.save_settings).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByText("Save changes"));
     expect(bridge.commit_draft).toHaveBeenCalledTimes(1);
     expect(bridge.save_settings.mock.invocationCallOrder[1]).toBeLessThan(
       bridge.commit_draft.mock.invocationCallOrder[0],
     );
-    // No trailing write fires after the save.
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(bridge.save_settings).toHaveBeenCalledTimes(2);
   });
 
-  it("Cancels the queued trailing write on discard.", () => {
-    vi.useFakeTimers();
+  it("Does not stage another write after discard.", () => {
     const bridge = makeBridge();
     renderApp(bridge);
     const toggle = screen.getAllByRole("switch")[1];
     fireEvent.click(toggle);
     fireEvent.click(toggle);
-    expect(bridge.save_settings).toHaveBeenCalledTimes(1);
+    expect(bridge.save_settings).toHaveBeenCalledTimes(2);
     // Mark the draft dirty so the Discard button appears in the footer.
     const onDirty = bridge.dirty_changed.connect.mock.calls[0][0];
     act(() => onDirty(true));
     fireEvent.click(screen.getByText("Discard"));
     expect(bridge.discard_draft).toHaveBeenCalledTimes(1);
-    // The queued write is dropped, so nothing re-dirties the settings.
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(bridge.save_settings).toHaveBeenCalledTimes(1);
+    expect(bridge.save_settings).toHaveBeenCalledTimes(2);
   });
 
-  it("Cancels the queued trailing write on reset.", () => {
-    vi.useFakeTimers();
+  it("Does not stage another write after reset.", () => {
     const bridge = makeBridge();
     renderApp(bridge);
     const toggle = screen.getAllByRole("switch")[1];
     fireEvent.click(toggle);
     fireEvent.click(toggle);
-    expect(bridge.save_settings).toHaveBeenCalledTimes(1);
+    expect(bridge.save_settings).toHaveBeenCalledTimes(2);
     // Navigate to General and confirm the reset dialog.
     fireEvent.click(screen.getByText("General"));
     fireEvent.click(screen.getByText("Reset"));
     const resetButtons = screen.getAllByText("Reset");
     fireEvent.click(resetButtons[resetButtons.length - 1]);
     expect(bridge.reset_defaults).toHaveBeenCalledTimes(1);
-    // The queued write is dropped, so it cannot overwrite the defaults.
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(bridge.save_settings).toHaveBeenCalledTimes(1);
+    expect(bridge.save_settings).toHaveBeenCalledTimes(2);
+  });
+
+  it("Sends the latest edit before an immediate title-bar close.", () => {
+    const bridge = makeBridge();
+    renderApp(bridge);
+    const toggle = screen.getAllByRole("switch")[1];
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole("button", { name: "Close Virelo" }));
+
+    expect(bridge.save_settings).toHaveBeenCalledTimes(2);
+    expect(bridge.setWindowCommand).toHaveBeenCalledWith("close", expect.any(Function));
+    expect(bridge.save_settings.mock.invocationCallOrder[1]).toBeLessThan(
+      bridge.setWindowCommand.mock.invocationCallOrder[0],
+    );
   });
 
   it("Keeps reset side-effect warnings visible.", async () => {

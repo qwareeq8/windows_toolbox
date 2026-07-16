@@ -7,11 +7,6 @@ import { CommandPalette } from "./panels.jsx";
 import { Button, Badge } from "./primitives.jsx";
 import { Icon } from "./icons.jsx";
 
-// Minimum interval between draft writes to the bridge. Slider drags update
-// the UI on every pointer move, but bridge writes are throttled to this rate
-// with a trailing write so the final value is always sent.
-const SAVE_THROTTLE_MS = 150;
-
 // Human-readable copy for the raw capture_status tokens from the backend.
 const CAPTURE_STATUS_COPY = {
   capturing: "Press a key...",
@@ -510,16 +505,8 @@ export default function VireloApp({ bridge }) {
     stateRef.current = state;
   }, [state]);
 
-  // Throttled draft writes: the first write in a burst goes out immediately,
-  // later writes coalesce into one trailing write per SAVE_THROTTLE_MS
-  // window, so the final value in a burst is always sent.
-  const saveTimer = React.useRef(null);
-  const pendingSave = React.useRef(null);
-  const lastSaveAt = React.useRef(0);
-
   const sendSave = React.useCallback(
     (next) => {
-      lastSaveAt.current = Date.now();
       bridge.save_settings(stateToBridge(next), (result) => {
         try {
           const r = JSON.parse(result);
@@ -540,54 +527,12 @@ export default function VireloApp({ bridge }) {
       const next = { ...stateRef.current, ...p };
       stateRef.current = next;
       setState(next);
-      pendingSave.current = next;
-      if (saveTimer.current) return; // A trailing write is already scheduled.
-      const elapsed = Date.now() - lastSaveAt.current;
-      if (elapsed >= SAVE_THROTTLE_MS) {
-        pendingSave.current = null;
-        sendSave(next);
-      } else {
-        saveTimer.current = setTimeout(() => {
-          saveTimer.current = null;
-          const queued = pendingSave.current;
-          pendingSave.current = null;
-          if (queued) sendSave(queued);
-        }, SAVE_THROTTLE_MS - elapsed);
-      }
+      sendSave(next);
     },
     [sendSave],
   );
 
-  // Cancel any scheduled trailing write and drop the queued value. Save,
-  // discard, and reset must call this (or flushPendingSave) first so a stale
-  // throttled write cannot fire after the action and resurrect old state.
-  const cancelPendingSave = React.useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    pendingSave.current = null;
-  }, []);
-
-  // Send any queued trailing write immediately so the bridge draft reflects
-  // the latest UI state before a commit.
-  const flushPendingSave = React.useCallback(() => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    const queued = pendingSave.current;
-    pendingSave.current = null;
-    if (queued) sendSave(queued);
-  }, [sendSave]);
-
-  // Flush any queued draft write on unmount so no change is lost.
-  React.useEffect(() => () => flushPendingSave(), [flushPendingSave]);
-
   const handleSave = () => {
-    // Push any queued draft write first; bridge calls are handled in order,
-    // so the commit below operates on the latest state.
-    flushPendingSave();
     bridge.commit_draft((result) => {
       try {
         const r = JSON.parse(result);
@@ -603,9 +548,6 @@ export default function VireloApp({ bridge }) {
   };
 
   const handleDiscard = () => {
-    // Drop any queued draft write so it cannot re-dirty the settings right
-    // after the discard lands.
-    cancelPendingSave();
     bridge.discard_draft((result) => {
       try {
         const r = JSON.parse(result);
@@ -621,9 +563,6 @@ export default function VireloApp({ bridge }) {
   };
 
   const handleReset = () => {
-    // Drop any queued draft write so it cannot overwrite the defaults that
-    // the reset is about to install.
-    cancelPendingSave();
     bridge.reset_defaults((json) => {
       try {
         const r = JSON.parse(json);
